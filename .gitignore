@@ -13,3 +13,35 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+
+.github
+.vscode
+
+# Bookmarker runtime configuration and local overrides
+/config.yaml
+/config.local.yaml
+/config.*.local.yaml
+
+# Runtime screenshot and build artifacts
+/screenshots/
+/bin/
+/coverage/
+/dist/
+/build/
+/node_modules/
+/playwright-report/
+/test-results/
+/blob-report/
+/.e2e-screenshots
+/.e2e-config.yaml
+
+# Local environment and diagnostic output
+.env*
+!.env.example
+!deploy/compose/.env.example
+*.log
+.DS_Store
+Thumbs.db
+*.tmp
+*.swp
+.idea/

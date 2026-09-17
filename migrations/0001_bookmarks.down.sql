@@ -1,0 +1,9 @@
+DROP TABLE IF EXISTS login_throttle_pairs;
+DROP TABLE IF EXISTS screenshot_cleanup;
+DROP TABLE IF EXISTS capture_drafts;
+DROP TABLE IF EXISTS web_sessions;
+DROP TABLE IF EXISTS screenshots;
+DROP TABLE IF EXISTS bookmark_tags;
+DROP TABLE IF EXISTS tags;
+DROP TABLE IF EXISTS bookmarks;
+DROP TABLE IF EXISTS schema_migrations;

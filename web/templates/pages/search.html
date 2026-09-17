@@ -1,0 +1,12 @@
+{{define "content"}}
+<h1>Search</h1>
+<form method="get" action="/search" hx-get="/search" hx-target="#content" hx-push-url="true">
+  <label for="search-tag">Tag</label>
+  <input id="search-tag" type="text" name="tag" value="{{.Query.Tag}}">
+  <label for="search-q">Words</label>
+  <input id="search-q" type="text" name="q" value="{{.Query.Words}}">
+  <button type="submit">Search</button>
+</form>
+{{if .ValidationError}}<p class="field-error">{{.ValidationError}}</p>{{end}}
+{{if .HasSearched}}{{template "bookmark_results" .Results}}{{end}}
+{{end}}

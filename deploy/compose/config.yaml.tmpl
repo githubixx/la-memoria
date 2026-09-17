@@ -1,0 +1,22 @@
+administrator:
+  username: __BOOKMARKER_ADMIN_USERNAME__
+  password_hash: __BOOKMARKER_ADMIN_PASSWORD_HASH__
+branding:
+  page_title: Bookmarker
+  favicon_path: ""
+default_view: list
+database:
+  host: postgres
+  port: 5432
+  name: bookmarker
+  user: bookmarker
+  password_env: BOOKMARKER_DB_PASSWORD
+  tls_mode: disable
+screenshots:
+  root: /var/lib/bookmarker/screenshots
+search:
+  page_size: 10
+  maximum_results: 10000
+server:
+  listen_address: 0.0.0.0:8080
+  trusted_proxy_cidrs: []

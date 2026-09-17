@@ -1,0 +1,28 @@
+{{define "bookmark_results"}}
+{{if not .Items}}
+<p class="empty-state">No bookmarks found.</p>
+{{else}}
+<ul class="bookmark-list">
+  {{range .Items}}
+  <li class="bookmark-item">
+    <a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.URL}}</a>
+    <p class="description">{{.Description}}</p>
+    <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2006-01-02"}}</time>
+    {{if .Tags}}
+    <ul class="tags">
+      {{range .Tags}}<li><a href="/bookmarks?tag={{.NormalizedName}}" hx-get="/bookmarks?tag={{.NormalizedName}}" hx-target="#content" hx-push-url="true">{{.DisplayName}}</a></li>{{end}}
+    </ul>
+    {{end}}
+    {{if .Screenshot}}{{if .Screenshot.Available}}<img class="screenshot" src="/screenshots/{{.Screenshot.ID}}" alt="">{{end}}{{end}}
+    {{if $.Authenticated}}<p class="bookmark-actions"><a href="/bookmarks/{{.ID}}/edit">Edit</a> <a href="/bookmarks/{{.ID}}/delete">Delete</a></p>{{end}}
+  </li>
+  {{end}}
+</ul>
+{{end}}
+{{if .IsCapped}}<p class="cap-notice">Showing the first {{.TotalWithinCap}} matches.</p>{{end}}
+{{if .Pagination.Links}}
+<nav class="pagination" aria-label="Pagination">
+  {{range .Pagination.Links}}{{if .Ellipsis}}<span>&hellip;</span>{{else}}<a href="?page={{.Page}}" hx-get="?page={{.Page}}" hx-target="#content" hx-push-url="true"{{if .Current}} aria-current="page"{{end}}>{{.Label}}</a>{{end}}{{end}}
+</nav>
+{{end}}
+{{end}}

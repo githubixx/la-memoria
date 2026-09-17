@@ -1,0 +1,25 @@
+{{define "content"}}
+<h1>Configuration</h1>
+{{if .ValidationError}}<p class="field-error">{{.ValidationError}}</p>{{end}}
+{{if .RestartRequired}}<p class="feedback">Restart the application to use the updated database connection.</p>{{end}}
+<form method="post" action="/configuration" hx-post="/configuration" hx-target="#content">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <label for="page-title">Page title</label>
+  <input id="page-title" name="page_title" value="{{.Configuration.Branding.PageTitle}}" required>
+  <label for="favicon-path">Favicon path</label>
+  <input id="favicon-path" name="favicon_path" value="{{.Configuration.Branding.FaviconPath}}">
+  <label for="default-view">Default view</label>
+  <select id="default-view" name="default_view"><option value="list" {{if eq .Configuration.DefaultView "list"}}selected{{end}}>List</option><option value="add" {{if eq .Configuration.DefaultView "add"}}selected{{end}}>Add</option><option value="search" {{if eq .Configuration.DefaultView "search"}}selected{{end}}>Search</option><option value="configuration" {{if eq .Configuration.DefaultView "configuration"}}selected{{end}}>Configuration</option></select>
+  <label for="screenshot-root">Screenshot root</label>
+  <input id="screenshot-root" name="screenshot_root" value="{{.Configuration.Screenshots.Root}}" required>
+  <label for="database-host">Database host</label><input id="database-host" name="database_host" value="{{.Configuration.Database.Host}}" required>
+  <label for="database-port">Database port</label><input id="database-port" name="database_port" type="number" value="{{.Configuration.Database.Port}}" required>
+  <label for="database-name">Database name</label><input id="database-name" name="database_name" value="{{.Configuration.Database.Name}}" required>
+  <label for="database-user">Database user</label><input id="database-user" name="database_user" value="{{.Configuration.Database.User}}" required>
+  <label for="database-password-env">Database password environment variable</label><input id="database-password-env" name="database_password_env" value="{{.Configuration.Database.PasswordEnv}}" required>
+  <label for="database-tls-mode">Database TLS mode</label><select id="database-tls-mode" name="database_tls_mode"><option value="disable" {{if eq .Configuration.Database.TLSMode "disable"}}selected{{end}}>Disable</option><option value="require" {{if eq .Configuration.Database.TLSMode "require"}}selected{{end}}>Require</option><option value="verify-ca" {{if eq .Configuration.Database.TLSMode "verify-ca"}}selected{{end}}>Verify CA</option><option value="verify-full" {{if eq .Configuration.Database.TLSMode "verify-full"}}selected{{end}}>Verify full</option></select>
+  <label for="search-page-size">Search page size</label><input id="search-page-size" name="search_page_size" type="number" value="{{.Configuration.Search.PageSize}}" required>
+  <label for="maximum-search-results">Maximum search results</label><input id="maximum-search-results" name="maximum_search_results" type="number" value="{{.Configuration.Search.MaximumResults}}" required>
+  <button type="submit">Save configuration</button>
+</form>
+{{end}}

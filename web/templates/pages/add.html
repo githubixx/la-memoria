@@ -1,0 +1,19 @@
+{{define "content"}}
+<h1>Add a bookmark</h1>
+{{if .ValidationError}}<p class="field-error">{{.ValidationError}}</p>{{end}}
+<form method="post" action="/bookmarks" hx-post="/bookmarks" hx-target="#content">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <label for="add-url">URL</label>
+  <input id="add-url" type="url" name="url" required data-capture-trigger>
+  <label for="add-description">Description</label>
+  <input id="add-description" type="text" name="description" required>
+  <label for="add-tag-input">Tags</label>
+  <input id="add-tag-input" type="text" data-tag-input>
+  <button type="button" data-tag-add>Add tag</button>
+  <ul class="tags" data-tag-list></ul>
+  <div id="capture-status" class="capture-status" data-state="pending"></div>
+  <label><input type="checkbox" name="save_without_screenshot" value="true" data-continue-without> Continue without a screenshot</label>
+  <button type="submit">Save bookmark</button>
+</form>
+<script src="/assets/js/bookmark-form.js" defer></script>
+{{end}}

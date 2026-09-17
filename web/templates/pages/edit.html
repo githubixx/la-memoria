@@ -1,0 +1,20 @@
+{{define "content"}}
+<h1>Edit bookmark</h1>
+{{if .ValidationError}}<p class="field-error">{{.ValidationError}}</p>{{end}}
+<form method="post" action="/bookmarks/{{.Bookmark.ID}}" hx-post="/bookmarks/{{.Bookmark.ID}}" hx-target="#content">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <input type="hidden" name="bookmark_id" value="{{.Bookmark.ID}}">
+  <label for="edit-url">URL</label>
+  <input id="edit-url" type="url" name="url" value="{{.Bookmark.URL}}" required data-capture-trigger>
+  <label for="edit-description">Description</label>
+  <input id="edit-description" type="text" name="description" value="{{.Bookmark.Description}}" required>
+  <label for="edit-tag-input">Tags</label>
+  <input id="edit-tag-input" type="text" data-tag-input>
+  <button type="button" data-tag-add>Add tag</button>
+  <ul class="tags" data-tag-list>{{range .Bookmark.Tags}}<li><span>{{.DisplayName}}</span><input type="hidden" name="tags" value="{{.DisplayName}}"><button type="button" aria-label="Remove tag {{.DisplayName}}">Remove</button></li>{{end}}</ul>
+  <div id="capture-status" class="capture-status" data-state="pending"></div>
+  <label><input type="checkbox" name="save_without_screenshot" value="true"> Continue without a screenshot</label>
+  <button type="submit">Save bookmark</button>
+</form>
+<script src="/assets/js/bookmark-form.js" defer></script>
+{{end}}
