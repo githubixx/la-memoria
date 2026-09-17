@@ -1,11 +1,5 @@
 # Changelog
 
-## 0.2.0
-
-Add a local Docker Compose deployment bundle, persistent PostgreSQL and
-screenshot volumes, and the `bookmarker-hash` command for secure administrator
-verifier generation.
-
 ## 0.1.0
 
 Initial Bookmarker library, HTTP contract `v1`, CLI JSON Lines protocol `v1`,
