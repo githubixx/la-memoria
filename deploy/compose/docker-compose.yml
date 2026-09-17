@@ -1,0 +1,56 @@
+services:
+  postgres:
+    image: postgres:18.6
+    env_file:
+      - path: .env
+        required: false
+        format: raw
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - export POSTGRES_PASSWORD="$$BOOKMARKER_DB_PASSWORD"; exec docker-entrypoint.sh postgres
+    environment:
+      POSTGRES_DB: bookmarker
+      POSTGRES_USER: bookmarker
+    volumes:
+      - postgres-data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready --username=bookmarker --dbname=bookmarker"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+
+  bookmarker:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile
+    env_file:
+      - path: .env
+        required: false
+        format: raw
+    ports:
+      - "${BOOKMARKER_HOST_PORT:-8080}:8080"
+    volumes:
+      - screenshots:/var/lib/bookmarker/screenshots
+    depends_on:
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "node -e \"fetch('http://127.0.0.1:8080/bookmarks').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))\""]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+
+  bookmarker-hash:
+    build:
+      context: ../..
+      dockerfile: deploy/compose/Dockerfile
+    entrypoint: ["bookmarker-hash"]
+    stdin_open: true
+    tty: true
+
+volumes:
+  postgres-data:
+    name: ${BOOKMARKER_POSTGRES_VOLUME:-bookmarker-postgres-data}
+  screenshots:
+    name: ${BOOKMARKER_SCREENSHOTS_VOLUME:-bookmarker-screenshots}

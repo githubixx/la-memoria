@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{block "title" .}}Bookmarker{{end}}</title>
+  <link rel="icon" href="/favicon">
+  <link rel="stylesheet" href="/assets/css/bookmarker.css">
+  <script src="/assets/vendor/htmx.min.js" defer></script>
+</head>
+<body>
+  <header class="site-header">
+    <span class="site-title">{{.PageTitle}}</span>
+    {{template "menu" .}}
+  </header>
+  <div id="feedback" class="feedback-region" role="status" aria-live="polite">
+    {{block "feedback" .}}{{end}}
+  </div>
+  <main id="content">
+    {{block "content" .}}{{end}}
+  </main>
+</body>
+</html>

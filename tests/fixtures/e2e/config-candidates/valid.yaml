@@ -1,0 +1,16 @@
+branding:
+  page_title: Updated Bookmarker
+  favicon_path: ""
+default_view: search
+screenshots:
+  root: /tmp/bookmarker-e2e-screenshots-alternate
+database:
+  host: 127.0.0.1
+  port: 5432
+  name: bookmarker
+  user: bookmarker
+  password_env: BOOKMARKER_DB_PASSWORD
+  tls_mode: require
+search:
+  page_size: 10
+  maximum_results: 10000

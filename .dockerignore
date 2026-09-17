@@ -1,0 +1,15 @@
+.git/
+.github/
+.specify/
+node_modules/
+test-results/
+playwright-report/
+blob-report/
+coverage/
+dist/
+build/
+screenshots/
+*.log
+.env*
+deploy/compose/.env
+/.e2e-screenshots

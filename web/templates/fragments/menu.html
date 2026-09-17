@@ -1,0 +1,23 @@
+{{define "menu"}}
+<nav class="site-menu" aria-label="Primary">
+  <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="menu-list">Menu</button>
+  <ul id="menu-list" class="menu-list">
+    <li><a href="/bookmarks" hx-get="/bookmarks" hx-target="#content" hx-push-url="true">List</a></li>
+    <li><a href="/search" hx-get="/search" hx-target="#content" hx-push-url="true">Search</a></li>
+    {{if .Authenticated}}
+      <li><a href="/bookmarks/new" hx-get="/bookmarks/new" hx-target="#content" hx-push-url="true">Add</a></li>
+      <li><a href="/configuration" hx-get="/configuration" hx-target="#content" hx-push-url="true">Configuration</a></li>
+      <li>
+        <form method="post" action="/logout" hx-post="/logout" hx-target="#content">
+          <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+          <button type="submit">Sign out</button>
+        </form>
+      </li>
+    {{else}}
+      <li><a href="/bookmarks/new" hx-get="/bookmarks/new" hx-target="#content" hx-push-url="true">Add</a></li>
+      <li><a href="/configuration" hx-get="/configuration" hx-target="#content" hx-push-url="true">Configuration</a></li>
+      <li><a href="/login" hx-get="/login" hx-target="#content" hx-push-url="true">Sign in</a></li>
+    {{end}}
+  </ul>
+</nav>
+{{end}}

@@ -1,0 +1,10 @@
+{{define "content"}}
+<h1>Delete bookmark</h1>
+<p>Delete {{.Bookmark.Description}}?</p>
+<form method="post" action="/bookmarks/{{.Bookmark.ID}}/delete" hx-post="/bookmarks/{{.Bookmark.ID}}/delete" hx-target="#content">
+  <input type="hidden" name="csrf_token" value="{{.CSRFToken}}">
+  <input type="hidden" name="confirm" value="true">
+  <button type="submit">Delete</button>
+  <a href="/bookmarks">Cancel</a>
+</form>
+{{end}}

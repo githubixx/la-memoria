@@ -1,0 +1,22 @@
+administrator:
+  username: admin
+  password_hash: $argon2id$v=19$m=65536,t=3,p=1$Sjr9NSRcS4doGl0B6UNusw$7qcrjvQ1y5JHsPXS35XfNRsQ7sr023APCj2L/K6cokw
+branding:
+  page_title: Bookmarker
+  favicon_path: ""
+default_view: list
+database:
+  host: 127.0.0.1
+  port: 5432
+  name: bookmarker
+  user: bookmarker
+  password_env: BOOKMARKER_DB_PASSWORD
+  tls_mode: require
+screenshots:
+  root: /var/lib/bookmarker/screenshots
+search:
+  page_size: 10
+  maximum_results: 10000
+server:
+  listen_address: 127.0.0.1:8080
+  trusted_proxy_cidrs: []

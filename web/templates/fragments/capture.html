@@ -1,0 +1,12 @@
+<div id="capture-status" class="capture-status" data-state="{{.State}}"{{if eq .State "capturing"}} hx-get="/captures/{{.CaptureID}}" hx-trigger="every 500ms" hx-swap="outerHTML"{{end}}>
+  <input type="hidden" name="capture_id" value="{{.CaptureID}}">
+  {{if eq .State "capturing"}}<p>Capturing screenshot&hellip;</p>{{end}}
+  {{if eq .State "ready"}}<img class="screenshot-preview" src="{{.PreviewURL}}" alt="Captured preview">{{end}}
+  {{if eq .State "failed"}}
+    <p class="feedback-error">{{.Message}}</p>
+    {{if .CanRetry}}<button type="button" hx-post="/captures/{{.CaptureID}}/retry" hx-target="#capture-status" hx-swap="outerHTML">Retry capture</button>{{end}}
+  {{end}}
+  {{if .CanContinueWithout}}
+    <button type="button" hx-post="/captures/{{.CaptureID}}/discard" hx-target="#capture-status" hx-swap="outerHTML">Discard screenshot</button>
+  {{end}}
+</div>

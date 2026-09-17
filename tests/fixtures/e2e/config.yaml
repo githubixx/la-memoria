@@ -1,0 +1,24 @@
+# Non-production fixture configuration for local and CI E2E runs only.
+# Test-only administrator password: bookmarker-fixture-password
+administrator:
+  username: admin
+  password_hash: $argon2id$v=19$m=65536,t=3,p=1$C9O9Mk4c2Zn/ZfyqxooQvA$HPd9+zneNgxejjew94cvrd8E8+MwuZcPhibe4x1i0vM
+branding:
+  page_title: Bookmarker (E2E)
+  favicon_path: ""
+default_view: list
+screenshots:
+  root: /tmp/bookmarker-e2e-screenshots
+database:
+  host: 127.0.0.1
+  port: 54329
+  name: bookmarker
+  user: bookmarker
+  password_env: BOOKMARKER_DB_PASSWORD
+  tls_mode: disable
+search:
+  page_size: 10
+  maximum_results: 10000
+server:
+  listen_address: 127.0.0.1:8080
+  trusted_proxy_cidrs: []
