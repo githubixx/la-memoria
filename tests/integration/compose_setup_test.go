@@ -7,6 +7,7 @@ import (
 	"net"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/githubixx/la-memoria/tests/testkit"
 )
@@ -34,18 +35,21 @@ func TestComposeRetainsPostgreSQLDataAcrossBookmarkerRestart(t *testing.T) {
 	stack.Cleanup(t)
 	stack.WriteEnvironment(t, composeTestVerifier)
 
+	bookmarkID := fmt.Sprintf("compose-bookmark-%d", time.Now().UnixNano())
+	screenshotFile := fmt.Sprintf("compose-%d.png", time.Now().UnixNano())
+
 	stack.Run(t, "up", "--build", "--detach")
 	testkit.WaitForHTTP(t, fmt.Sprintf("http://127.0.0.1:%s/bookmarks", stack.Port))
-	stack.Run(t, "exec", "-T", "postgres", "psql", "-U", "bookmarker", "-d", "bookmarker", "-c", "INSERT INTO bookmarks (id, url, description, created_at, updated_at) VALUES ('compose-bookmark', 'https://example.test', 'Compose persistence check', now(), now())")
-	stack.Run(t, "exec", "-T", "postgres", "psql", "-U", "bookmarker", "-d", "bookmarker", "-c", "INSERT INTO screenshots (id, bookmark_id, storage_key, captured_url, captured_at, byte_size) VALUES ('compose-screenshot', 'compose-bookmark', 'compose.png', 'https://example.test', now(), 10)")
-	stack.Run(t, "exec", "-T", "bookmarker", "sh", "-c", "printf screenshot > /var/lib/bookmarker/screenshots/compose.png")
+	stack.Run(t, "exec", "-T", "postgres", "psql", "-U", "bookmarker", "-d", "bookmarker", "-c", fmt.Sprintf("INSERT INTO bookmarks (id, url, description, created_at, updated_at) VALUES ('%s', 'https://example.test', 'Compose persistence check', now(), now())", bookmarkID))
+	stack.Run(t, "exec", "-T", "postgres", "psql", "-U", "bookmarker", "-d", "bookmarker", "-c", fmt.Sprintf("INSERT INTO screenshots (id, bookmark_id, storage_key, captured_url, captured_at, byte_size) VALUES ('%s', '%s', '%s', 'https://example.test', now(), 10)", bookmarkID+"-screenshot", bookmarkID, screenshotFile))
+	stack.Run(t, "exec", "-T", "bookmarker", "sh", "-c", fmt.Sprintf("printf screenshot > /var/lib/bookmarker/screenshots/%s", screenshotFile))
 	stack.Run(t, "down")
 	stack.Run(t, "up", "--detach")
 	testkit.WaitForHTTP(t, fmt.Sprintf("http://127.0.0.1:%s/bookmarks", stack.Port))
-	if output := stack.Run(t, "exec", "-T", "postgres", "psql", "-U", "bookmarker", "-d", "bookmarker", "-tAc", "SELECT description FROM bookmarks WHERE id = 'compose-bookmark'"); !strings.Contains(output, "Compose persistence check") {
+	if output := stack.Run(t, "exec", "-T", "postgres", "psql", "-U", "bookmarker", "-d", "bookmarker", "-tAc", fmt.Sprintf("SELECT description FROM bookmarks WHERE id = '%s'", bookmarkID)); !strings.Contains(output, "Compose persistence check") {
 		t.Fatalf("persisted bookmark query = %q", output)
 	}
-	if output, err := stack.Output("exec", "-T", "bookmarker", "test", "-s", "/var/lib/bookmarker/screenshots/compose.png"); err != nil {
+	if output, err := stack.Output("exec", "-T", "bookmarker", "test", "-s", fmt.Sprintf("/var/lib/bookmarker/screenshots/%s", screenshotFile)); err != nil {
 		t.Fatalf("persisted screenshot check: %v\n%s", err, output)
 	}
 }

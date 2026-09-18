@@ -42,14 +42,14 @@
 ### Tests for User Story 1
 
 - [X] T008 [US1] Add failing Docker integration coverage for bundle-based `docker compose up`, PostgreSQL health ordering, Bookmarker HTTP readiness, automatic migrations, and default host reachability in `tests/integration/compose_setup_test.go`
-- [ ] T009 [US1] Add failing Docker integration coverage that creates a bookmark and screenshot, restarts the bundle stack, and verifies both persisted stores in `tests/integration/compose_setup_test.go`
-- [ ] T010 [US1] Add failing Docker integration cases that assert an unavailable PostgreSQL dependency and a host-port conflict keep Bookmarker unavailable with non-secret actionable diagnostics in `tests/integration/compose_setup_test.go`
+- [X] T009 [US1] Add failing Docker integration coverage that creates a bookmark and screenshot, restarts the bundle stack, and verifies both persisted stores in `tests/integration/compose_setup_test.go`
+- [X] T010 [US1] Add failing Docker integration cases that assert an unavailable PostgreSQL dependency and a host-port conflict keep Bookmarker unavailable with non-secret actionable diagnostics in `tests/integration/compose_setup_test.go`
 
 ### Implementation for User Story 1
 
 - [X] T011 [US1] Add `deploy/compose/Dockerfile` to build `bookmarker-web`, copy migrations and `web/` assets from the source-checkout context, and install pinned `agent-browser` 0.35.2 with its browser runtime
 - [X] T012 [US1] Add `deploy/compose/docker-compose.yml` with normal Bookmarker and private PostgreSQL services, source-checkout-relative build context, readiness dependencies, HTTP health check, configurable host port, and default named data/screenshot volumes
-- [ ] T013 [US1] Run startup, persistence, dependency-failure, and host-port-conflict integration coverage in `tests/integration/compose_setup_test.go`, correct affected bundle artifacts in `deploy/compose/`, and rerun until green
+- [X] T013 [US1] Run startup, persistence, dependency-failure, and host-port-conflict integration coverage in `tests/integration/compose_setup_test.go`, correct affected bundle artifacts in `deploy/compose/`, and rerun until green
 
 **Checkpoint**: The copied source-checkout bundle starts a healthy local stack, diagnoses an unavailable dependency safely, and retains data through restart.
 
@@ -107,9 +107,9 @@
 
 - [X] T028 [P] Bump Bookmarker from `0.1.0` to `0.2.0` in `go.mod` and `package.json`, and add the matching backward-compatible Docker Compose onboarding and `bookmarker-hash` release note in `CHANGELOG.md`
 - [X] T029 [P] Document the local Compose configuration boundary and cross-reference the README setup in `docs/configuration.md`
-- [ ] T030 Add executed quickstart evidence for default startup, generated-verifier sign-in, restart persistence, host-port override, and expected failures in `specs/002-local-compose-setup/validation.md`
+- [X] T030 Add executed quickstart evidence for default startup, generated-verifier sign-in, restart persistence, host-port override, and expected failures in `specs/002-local-compose-setup/validation.md`
 - [X] T031 Run Go formatting and all feature-scoped test commands from `Makefile` against `bookmarker/usecase/password_test.go`, `tests/contract/password_hash_command_test.go`, `tests/contract/compose_template_test.go`, and `tests/integration/compose_setup_test.go`
-- [ ] T032 Run the full repository validation suite and record any unrelated pre-existing failures separately in `specs/002-local-compose-setup/validation.md` using `make validate`
+- [X] T032 Run the full repository validation suite and record any unrelated pre-existing failures separately in `specs/002-local-compose-setup/validation.md` using `make validate`
 
 ---
 
@@ -186,3 +186,8 @@ T023: copied-template integration test in tests/integration/compose_setup_test.g
 ### Format Validation
 
 All 32 tasks use the required `- [ ] T### [P?] [US?] Description with file path` checklist format. Story labels are present on every user-story task and absent from setup, foundational, and polish tasks.
+
+## Phase 7: Convergence
+
+- [X] T033 Complete the remaining local Compose persistence and failure validation for the default bundle, fix the affected deployment artifacts if needed, and confirm the local Docker stack satisfies the User Story 1 acceptance scenarios and the safety requirements in US1/AC3, FR-002, and FR-014 (complete)
+- [X] T034 Execute and record the final acceptance evidence for the default local startup, restart persistence, and repository-wide validation gate, then resolve any remaining failures so the feature meets SC-003, SC-004, SC-006, T030, and T032 (recorded with unrelated repository-level failures separated from feature acceptance)

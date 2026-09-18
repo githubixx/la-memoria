@@ -97,8 +97,8 @@ func (router *Router) route(writer http.ResponseWriter, request *http.Request) {
 		router.handleCaptureRetry(writer, request, captureIDFromPath(path))
 	case strings.HasPrefix(path, "/captures/") && strings.HasSuffix(path, "/discard") && request.Method == http.MethodPost:
 		router.handleCaptureDiscard(writer, request, captureIDFromPath(path))
-		case strings.HasPrefix(path, "/captures/") && strings.HasSuffix(path, "/preview") && request.Method == http.MethodGet:
-			router.handleCapturePreview(writer, request, captureIDFromPath(path))
+	case strings.HasPrefix(path, "/captures/") && strings.HasSuffix(path, "/preview") && request.Method == http.MethodGet:
+		router.handleCapturePreview(writer, request, captureIDFromPath(path))
 	case strings.HasPrefix(path, "/captures/") && request.Method == http.MethodGet:
 		router.handleCaptureStatus(writer, request, captureIDFromPath(path))
 	case path == "/configuration" && request.Method == http.MethodGet:

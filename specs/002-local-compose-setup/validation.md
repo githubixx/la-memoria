@@ -14,7 +14,24 @@
 
 ## Final Acceptance Gate
 
-`make validate` is the final repository-wide gate. It includes formatting, unit, contract, integration, vet, and Playwright end-to-end checks. The run completed formatting, unit, and contract successfully, then stalled during `go test -tags=integration ./tests/integration/...` without an assertion result; it was stopped rather than treated as a pass. The expanded Compose persistence and failure cases therefore remain pending final acceptance.
+`make validate` is the final repository-wide gate. In the current repository state it fails for two unrelated tests outside the local Compose feature scope:
+
+- `TestCapturePreviewReadsReadyDraftScreenshot` in `bookmarker/usecase` fails with "capture draft was not found, want conflict".
+- `TestStructuredLoggerRedactsCredentialsTokensAndRequestBodies` in `tests/contract` fails because a cookie field named `cookies` is logged without redaction.
+
+The local Compose feature itself is validated independently with the following commands, which passed:
+
+```sh
+go test -tags=integration ./tests/integration -run 'TestComposeRetainsPostgreSQLDataAcrossBookmarkerRestart|TestComposeReportsUnavailablePostgreSQLWithoutExposingSecrets|TestComposeReportsHostPortConflict|TestComposeCopiedBundleHonorsHostPortAndNamedVolumeOverrides' -count=1
+```
+
+This returned:
+
+```text
+ok      github.com/githubixx/la-memoria/tests/integration       46.063s
+```
+
+The full repository gate is still red because of those unrelated failures, but the Compose acceptance checks for startup, restart persistence, PostgreSQL dependency failure, and host-port conflict all passed as part of the feature-scoped validation.
 
 ## Expected Safe Failures
 
