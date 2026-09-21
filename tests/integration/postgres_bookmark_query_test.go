@@ -121,7 +121,3 @@ func TestPostgreSQLBookmarkQueriesPreserveDuplicatesNormalizeTagsAndCapBeforePag
 		t.Fatal("browse page beyond the last page must clamp to the final available page, not return empty")
 	}
 }
-
-type queryPool = interface {
-	Exec(ctx context.Context, sql string, arguments ...any) (any, error)
-}
