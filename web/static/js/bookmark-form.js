@@ -1,8 +1,7 @@
-// Accessible tag add/remove and URL-triggered capture behavior for the
-// Add/Edit bookmark form. Progressive enhancement only: the form works
-// without this script (tags submit as plain text, capture is skipped).
 (function () {
   "use strict";
+
+  var initializedForms = new WeakSet();
 
   function setupMenu(menu) {
     var toggle = menu.querySelector(".menu-toggle");
@@ -23,6 +22,20 @@
         toggle.focus();
       }
     });
+    menu.addEventListener("click", function (event) {
+      if (event.target.closest("a, button[type='submit']")) {
+        setOpen(false);
+        toggle.focus();
+      }
+    });
+    document.addEventListener("click", function (event) {
+      if (!menu.contains(event.target)) setOpen(false);
+    });
+    menu.addEventListener("focusout", function (event) {
+      if (!menu.contains(event.relatedTarget)) setOpen(false);
+    });
+    setOpen(false);
+    menu.classList.add("menu-ready");
   }
 
   function setupTags(form) {
@@ -85,9 +98,16 @@
     });
   }
 
+  function setupForms() {
+    document.querySelectorAll("form").forEach(function (form) {
+      if (initializedForms.has(form)) return;
+      setupTags(form);
+      setupCaptureTrigger(form);
+      initializedForms.add(form);
+    });
+  }
+
   document.querySelectorAll(".site-menu").forEach(setupMenu);
-  document.querySelectorAll("form").forEach(function (form) {
-    setupTags(form);
-    setupCaptureTrigger(form);
-  });
+  setupForms();
+  document.body.addEventListener("htmx:afterSwap", setupForms);
 })();

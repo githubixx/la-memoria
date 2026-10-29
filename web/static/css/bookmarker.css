@@ -26,37 +26,83 @@ body {
 
 .site-header {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
+  gap: var(--space-2);
   min-height: var(--header-height);
   padding: 0 var(--space-3);
   border-bottom: 1px solid var(--color-border);
 }
 
-.site-title { font-weight: 600; }
+.site-title { font-weight: 600; min-width: 0; flex: 1; overflow-wrap: anywhere; }
 
-.site-menu { position: relative; }
+.site-menu { position: relative; max-width: 100%; }
 
 .menu-toggle {
   display: none;
   font: inherit;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  padding: 0;
+  color: var(--color-text);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  cursor: pointer;
 }
+
+.menu-ready .menu-toggle { display: flex; }
+.menu-icon { display: grid; gap: 4px; width: 20px; }
+.menu-icon > span { display: block; height: 2px; background: currentColor; }
 
 .menu-list {
   display: flex;
+  flex-wrap: wrap;
   gap: var(--space-3);
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
+.menu-ready .menu-list {
+  display: none;
+  position: absolute;
+  right: 0;
+  top: calc(100% + var(--space-2));
+  z-index: 100;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  gap: var(--space-1);
+  width: 15rem;
+  max-width: calc(100vw - 2rem);
+  max-height: calc(100vh - var(--header-height) - 1rem);
+  max-height: calc(100dvh - var(--header-height) - 1rem);
+  overflow: auto;
+  padding: var(--space-2);
+  background: var(--color-background);
+  border: 1px solid var(--color-border);
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgb(0 0 0 / 12%);
+}
+
+.menu-ready .menu-list.open { display: flex; }
+
 .menu-list a, .menu-list button {
+  display: block;
+  width: 100%;
+  min-height: 2.75rem;
   font: inherit;
+  text-align: left;
+  white-space: normal;
+  overflow-wrap: anywhere;
   color: var(--color-accent);
   background: none;
   border: none;
   cursor: pointer;
-  padding: var(--space-1) var(--space-2);
+  padding: var(--space-2);
   text-decoration: none;
 }
 
@@ -145,17 +191,3 @@ select {
 }
 
 .field-error { color: var(--color-danger); font-size: 0.875rem; }
-
-@media (max-width: 40rem) {
-  .menu-toggle { display: inline-block; }
-  .menu-list {
-    position: absolute;
-    right: 0;
-    top: 100%;
-    flex-direction: column;
-    background: var(--color-background);
-    border: 1px solid var(--color-border);
-    display: none;
-  }
-  .menu-list.open { display: flex; }
-}
