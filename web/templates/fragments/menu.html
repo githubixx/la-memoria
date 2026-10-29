@@ -1,6 +1,8 @@
 {{define "menu"}}
 <nav class="site-menu" aria-label="Primary">
-  <button type="button" class="menu-toggle" aria-expanded="false" aria-controls="menu-list">Menu</button>
+  <button type="button" class="menu-toggle" aria-label="Menu" title="Menu" aria-expanded="false" aria-controls="menu-list">
+    <span class="menu-icon" aria-hidden="true"><span></span><span></span><span></span></span>
+  </button>
   <ul id="menu-list" class="menu-list">
     <li><a href="/bookmarks" hx-get="/bookmarks" hx-target="#content" hx-push-url="true">List</a></li>
     <li><a href="/search" hx-get="/search" hx-target="#content" hx-push-url="true">Search</a></li>
