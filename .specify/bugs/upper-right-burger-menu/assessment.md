@@ -8,7 +8,7 @@
 
 ## Report (verbatim or summarized)
 
-> Initially I said I want to have a burger menu at the upper right. I've pasted an example from a different application. You can find it in /opt/scripts/vdradmin-go/ directory.
+> Initially I said I want to have a burger menu at the upper right. I've pasted an example from a different application. You can find it in /vdradmin-go/ directory.
 
 The screenshot shows a burger icon at the upper right and an open, vertically stacked dropdown below it. The reference application's labels and dark styling are examples, not evidence that Bookmarker should gain TV-specific destinations or a new theme. No URL was supplied or fetched.
 
@@ -43,10 +43,10 @@ These are code-derived reproduction steps, not a recorded browser execution. No 
 
 Reference application, outside this workspace:
 
-- `/opt/scripts/vdradmin-go/web/templates/_nav.html:1` delegates to `chroma/header`.
-- `/opt/scripts/vdradmin-go/internal/adapters/primary/http/navigation.go:19` supplies a `chromaui.Header` with `MenuLabel: "Menu"` and application-owned destinations, matching the screenshot's labels.
-- `/opt/scripts/vdradmin-go/web/templates/index.html:13` loads the shared `/ui/js/menu.js`.
-- `/opt/scripts/vdradmin-go/go.mod:8` declares `github.com/githubixx/chroma-ui v0.2.0`. The dependency's internal implementation was not inspected; no claim is made about its exact keyboard or dismissal behavior.
+- `vdradmin-go/web/templates/_nav.html:1` delegates to `chroma/header`.
+- `vdradmin-go/internal/adapters/primary/http/navigation.go:19` supplies a `chromaui.Header` with `MenuLabel: "Menu"` and application-owned destinations, matching the screenshot's labels.
+- `vdradmin-go/web/templates/index.html:13` loads the shared `/ui/js/menu.js`.
+- `vdradmin-go/go.mod:8` declares `github.com/githubixx/chroma-ui v0.2.0`. The dependency's internal implementation was not inspected; no claim is made about its exact keyboard or dismissal behavior.
 
 ## Root Cause Hypothesis
 
