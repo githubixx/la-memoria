@@ -52,6 +52,20 @@
       },
       "registered_skills": [],
       "installed_at": "2026-08-26T14:12:58.122102+00:00"
+    },
+    "threatmodel": {
+      "version": "2.1.2",
+      "source": "local",
+      "manifest_hash": "sha256:8e1d76aba6f611ad1166921689b2036c7e456847615e21cb57e951a41bb3e29e",
+      "enabled": true,
+      "priority": 10,
+      "registered_commands": {
+        "copilot": [
+          "speckit.threatmodel.analyze"
+        ]
+      },
+      "registered_skills": [],
+      "installed_at": "2026-10-10T14:07:02.151890+00:00"
     }
   }
 }
