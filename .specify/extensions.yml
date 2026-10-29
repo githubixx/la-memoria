@@ -1,6 +1,7 @@
 installed:
 - assess
 - bug
+- threatmodel
 - wiki
 settings:
   auto_execute_hooks: true
@@ -22,4 +23,12 @@ hooks:
     priority: 10
     prompt: Record what this implementation taught into the project wiki?
     description: Capture implementation learnings into the wiki after implementation
+    condition: null
+  - extension: threatmodel
+    command: speckit.threatmodel.analyze
+    enabled: true
+    optional: true
+    priority: 10
+    prompt: Run OWASP LLM threat analysis on this feature?
+    description: Post-implementation security review
     condition: null
