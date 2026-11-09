@@ -58,9 +58,7 @@
       remove.type = "button";
       remove.textContent = "Remove";
       remove.setAttribute("aria-label", "Remove tag " + trimmed);
-      remove.addEventListener("click", function () {
-        item.remove();
-      });
+      remove.setAttribute("data-tag-remove", "");
       item.appendChild(label);
       item.appendChild(hidden);
       item.appendChild(remove);
@@ -71,6 +69,12 @@
 
     addButton.addEventListener("click", function () {
       addTag(input.value);
+    });
+    list.addEventListener("click", function (event) {
+      var remove = event.target.closest("[data-tag-remove]");
+      if (!remove || !list.contains(remove)) return;
+      var item = remove.closest("li");
+      if (item && item.parentElement === list) item.remove();
     });
     input.addEventListener("keydown", function (event) {
       if (event.key === "Enter") {

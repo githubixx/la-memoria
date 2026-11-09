@@ -1,12 +1,32 @@
 package httpweb
 
 import (
+	"errors"
 	"net/http"
 	"net/url"
 	"strconv"
 
 	"github.com/githubixx/la-memoria/bookmarker/model"
 )
+
+func (router *Router) handleScreenshot(writer http.ResponseWriter, request *http.Request, id string) {
+	if router.dependencies.Screenshots == nil {
+		http.Error(writer, "screenshots unavailable", http.StatusServiceUnavailable)
+		return
+	}
+	image, err := router.dependencies.Screenshots.Read(request.Context(), model.ID(id))
+	if errors.Is(err, model.ErrScreenshotNotFound) {
+		http.NotFound(writer, request)
+		return
+	}
+	if err != nil {
+		http.Error(writer, "screenshot unavailable", http.StatusInternalServerError)
+		return
+	}
+	writer.Header().Set("Content-Type", "image/png")
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	_, _ = writer.Write(image)
+}
 
 // pageContext carries the fields every page template needs from the shared
 // layout and menu fragment.

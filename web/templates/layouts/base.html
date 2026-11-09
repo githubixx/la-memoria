@@ -1,24 +1,29 @@
 <!doctype html>
-<html lang="en">
+<html lang="en"{{if .Appearance.StylesheetURL}} data-theme="{{.Appearance.Theme}}"{{end}}>
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{{block "title" .}}Bookmarker{{end}}</title>
+  <title>{{block "title" .Data}}Bookmarker{{end}}</title>
   <link rel="icon" href="/favicon">
-  <link rel="stylesheet" href="/assets/css/bookmarker.css">
+  <link rel="stylesheet" href="/ui/css/base.css">
+  <link rel="stylesheet" href="/assets/css/bookmarker.css?v=3">
+  {{if .Appearance.StylesheetURL}}<link rel="stylesheet" href="{{.Appearance.StylesheetURL}}">{{end}}
+  <link rel="stylesheet" href="/assets/css/chroma-compat.css?v=3">
   <script src="/assets/vendor/htmx.min.js" defer></script>
   <script src="/assets/js/bookmark-form.js" defer></script>
+  <script src="/assets/js/configuration.js" defer></script>
+  <script src="/assets/js/themed-select.js" defer></script>
 </head>
 <body>
   <header class="site-header">
-    <span class="site-title">{{.PageTitle}}</span>
-    {{template "menu" .}}
+    <span class="site-title nav-brand">{{.Data.PageTitle}}</span>
+    {{template "menu" .Data}}
   </header>
   <div id="feedback" class="feedback-region" role="status" aria-live="polite">
-    {{block "feedback" .}}{{end}}
+    {{block "feedback" .Data}}{{end}}
   </div>
   <main id="content">
-    {{block "content" .}}{{end}}
+    {{block "content" .Data}}{{end}}
   </main>
 </body>
 </html>

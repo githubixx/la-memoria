@@ -22,10 +22,12 @@ var SensitiveFields = []string{
 	"session_token",
 	"csrf_token",
 	"cookie",
+	"cookies",
 	"database_password",
 	"secret",
 	"environment_value",
 	"body",
+	"form_body",
 	"url",
 	"target_url",
 }

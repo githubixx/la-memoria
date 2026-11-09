@@ -1,0 +1,318 @@
+/* Bookmarker-specific layout after Chroma and the selected theme. */
+body {
+  color: var(--text-color, #1a1a1a);
+  background-color: var(--bg-color, #fff);
+  font-family: var(--font-sans, system-ui, sans-serif);
+}
+
+/* Page forms share the bookmark card's available content width, not the
+ * global form cap used by the nested menu form. */
+main#content > form.form-grid { width: 100%; max-width: none; }
+.form-grid { grid-template-columns: minmax(0, 1fr); min-width: 0; }
+.form-grid > * { min-width: 0; }
+.form-grid input, .form-grid select { max-width: 100%; }
+/*
+ * Use the browser's customizable native picker where supported. The native
+ * select remains the form control (including when JS is unavailable); other
+ * browsers keep their own picker when the desktop enhancement is unavailable.
+ * Mix the theme accent into opaque, paired colors: surface tokens can be
+ * gradients or translucent and are not necessarily safe option backgrounds.
+ */
+@supports (color: light-dark(black, white)) and (color: color-mix(in srgb, red, white)) {
+  .form-grid select:not([multiple]):not([size]), .themed-select {
+    --picker-ink: light-dark(#111827, #fff);
+    --picker-disabled-ink: light-dark(#374151, #f8fafc);
+    --picker-surface: light-dark(
+      color-mix(in srgb, var(--primary-color, #7c3aed) 10%, white),
+      color-mix(in srgb, var(--primary-color, #a78bfa) 12%, #080c18)
+    );
+    --picker-active: light-dark(
+      color-mix(in srgb, var(--primary-color, #7c3aed) 20%, white),
+      color-mix(in srgb, var(--primary-color, #a78bfa) 32%, #080c18)
+    );
+  }
+  .themed-select { position: relative; min-width: 0; }
+  .form-grid .themed-select-native {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: 0;
+    border: 0;
+    clip-path: inset(50%);
+    opacity: 0;
+    pointer-events: none;
+    overflow: hidden;
+  }
+  .themed-select-trigger {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: .75rem;
+    width: 100%;
+    min-height: 2.75rem;
+    font: inherit;
+    text-align: left;
+    padding: .5rem .75rem;
+    border: 2px solid var(--border-color, #64748b);
+    border-radius: var(--radius, .5rem);
+    color: var(--text-color, #111827);
+    background: var(--surface-color, #fff);
+    cursor: pointer;
+  }
+  .themed-select-trigger::after { content: "\25be"; flex: none; }
+  .themed-select-list {
+    position: absolute;
+    z-index: 20;
+    top: 100%;
+    left: 0;
+    width: 100%;
+    max-height: min(20rem, 50vh);
+    overflow: auto;
+    border: 2px solid var(--picker-ink, #111827);
+    border-radius: var(--radius, .5rem);
+    color: var(--picker-ink, #111827);
+    background: var(--picker-surface, #fff);
+    box-shadow: 0 4px 12px rgb(0 0 0 / 20%);
+  }
+  .themed-select-list[hidden] { display: none; }
+  .themed-select-option {
+    padding: .5rem .75rem;
+    color: var(--picker-ink, #111827);
+    background: var(--picker-surface, #fff);
+    cursor: pointer;
+    overflow-wrap: anywhere;
+  }
+  .themed-select-option[data-active="true"], .themed-select-option:hover {
+    background: var(--picker-active, #e2e8f0);
+  }
+  .themed-select-option[aria-disabled="true"] {
+    color: var(--picker-disabled-ink, #374151);
+    font-style: italic;
+    cursor: not-allowed;
+  }
+  :root[data-theme="spaceship-2"] .themed-select {
+    --picker-ink: var(--text-color);
+    --picker-disabled-ink: #a8c5c8;
+    --picker-surface: #000;
+    --picker-active: var(--primary-color);
+  }
+  :root[data-theme="spaceship-2"] .themed-select-trigger::after {
+    position: static;
+    color: var(--text-muted);
+  }
+  :root[data-theme="spaceship-2"] .themed-select-list {
+    border: 1px solid var(--primary-color);
+  }
+  :root[data-theme="spaceship-2"] .themed-select-option:not([aria-disabled="true"]):is([aria-selected="true"], [data-active="true"], :hover) {
+    color: #050608;
+    background: var(--primary-color);
+  }
+  :root[data-theme="spaceship-2"] .themed-select-option[aria-disabled="true"]:hover {
+    background: var(--picker-surface);
+  }
+  .form-grid select:not([multiple]):not([size]) option {
+    color: var(--picker-ink);
+    background: var(--picker-surface);
+    opacity: 1;
+    text-shadow: none;
+    padding: .5rem .75rem;
+  }
+  .form-grid select:not([multiple]):not([size]) option:checked,
+  .form-grid select:not([multiple]):not([size]) option:hover,
+  .form-grid select:not([multiple]):not([size]) option:focus {
+    color: var(--picker-ink);
+    background: var(--picker-active);
+  }
+  .form-grid select:not([multiple]):not([size]) option:focus-visible {
+    outline: 2px solid currentColor;
+    outline-offset: -3px;
+  }
+  .form-grid select:not([multiple]):not([size]) option:disabled {
+    color: var(--picker-disabled-ink);
+    font-style: italic;
+  }
+}
+@supports (appearance: base-select) and (selector(::picker(select))) and (color: light-dark(black, white)) {
+  .form-grid select:not([multiple]):not([size]) {
+    appearance: base-select;
+  }
+  .form-grid select:not([multiple]):not([size])::picker(select) {
+    appearance: base-select;
+    background: var(--picker-surface);
+    color: var(--picker-ink);
+    border: 2px solid currentColor;
+    border-radius: var(--radius, .5rem);
+    max-height: min(20rem, 50vh);
+    overflow: auto;
+  }
+  @media (forced-colors: active) {
+    .form-grid select:not([multiple]):not([size]),
+    .form-grid select:not([multiple]):not([size])::picker(select) {
+      appearance: auto;
+    }
+  }
+
+}
+.form-grid input[type="url"], .form-grid input[type="number"] {
+  width: 100%;
+  font: inherit;
+  padding: .5rem;
+  border: 2px solid var(--border-color);
+  border-radius: var(--radius);
+  color: var(--text-color);
+  background: var(--surface-color);
+}
+.site-header .site-menu { padding: 0; }
+.menu-toggle { min-width: 45px; min-height: 45px; }
+/*
+ * Chroma's surface and accent tokens are not necessarily an accessible
+ * popup/text pair (the surface can even be a transparent gradient).
+ * Keep the popup's backing and its foreground together instead.  The solid
+ * declaration is a fallback; the second lets about 10% of the scene through
+ * without making the labels themselves translucent.
+ */
+.menu-ready .menu-list {
+  --menu-ink: #fff;
+  --menu-hover: rgb(255 255 255 / 12%);
+  background: #080c18;
+  background: rgba(8, 12, 24, .9);
+  color: var(--menu-ink);
+  -webkit-backdrop-filter: blur(2px);
+  backdrop-filter: blur(2px);
+}
+:root[data-theme="light"] .menu-ready .menu-list {
+  --menu-ink: #171229;
+  --menu-hover: rgb(0 0 0 / 8%);
+  background: #fafaff;
+  background: rgba(250, 250, 255, .9);
+}
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme]) .menu-ready .menu-list {
+    --menu-ink: #171229;
+    --menu-hover: rgb(0 0 0 / 8%);
+    background: #fafaff;
+    background: rgba(250, 250, 255, .9);
+  }
+}
+:root[data-theme="crt-starfield-1"] .menu-ready .menu-list {
+  --menu-ink: #ffe2a0;
+}
+.menu-ready .menu-list a,
+.menu-ready .menu-list button {
+  color: var(--menu-ink);
+  background: transparent;
+  opacity: 1;
+  text-shadow: none;
+}
+.menu-ready .menu-list a:hover,
+.menu-ready .menu-list button:hover,
+.menu-ready .menu-list a:focus-visible,
+.menu-ready .menu-list button:focus-visible {
+  color: var(--menu-ink);
+  background: var(--menu-hover);
+}
+.menu-ready .menu-list a:focus-visible,
+.menu-ready .menu-list button:focus-visible {
+  outline-offset: -3px;
+}
+@media (forced-colors: active) {
+  .menu-ready .menu-list { background: Canvas; --menu-ink: CanvasText; --menu-hover: Highlight; }
+  .menu-ready .menu-list a:hover, .menu-ready .menu-list button:hover,
+  .menu-ready .menu-list a:focus-visible, .menu-ready .menu-list button:focus-visible {
+    color: HighlightText;
+  }
+}
+.bookmark-list { display: grid; gap: 1rem; }
+.bookmark-list .bookmark-item.card {
+  padding: clamp(1rem, 2vw, 1.25rem);
+  border-color: var(--nav-active-border, var(--color-border));
+  overflow-wrap: anywhere;
+}
+.bookmark-list .bookmark-url {
+  max-width: 100%;
+  color: var(--text-color);
+  font-size: 1.05rem;
+  font-weight: 650;
+  text-decoration-color: var(--primary-color);
+  text-underline-offset: .2em;
+}
+.bookmark-list .bookmark-url:hover {
+  text-decoration-color: currentColor;
+}
+.bookmark-list .bookmark-item .description {
+  margin: 0;
+  color: var(--text-color);
+}
+.bookmark-list .bookmark-item time {
+  color: var(--text-color);
+  font-size: .875rem;
+}
+.bookmark-list .bookmark-item .tags {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  gap: .5rem;
+  max-width: 100%;
+}
+.bookmark-list .bookmark-item .tags li { min-width: 0; max-width: 100%; }
+.bookmark-list .bookmark-item .tags a {
+  display: inline-block;
+  max-width: 100%;
+  padding: .2rem .7rem;
+  border: 1px solid var(--nav-active-border, var(--color-border));
+  border-radius: 999px;
+  background: var(--nav-active-bg, var(--surface-color));
+  color: var(--text-color);
+  font-size: .875rem;
+  text-decoration: none;
+}
+.bookmark-list .bookmark-item .tags a:hover { text-decoration: underline; }
+.bookmark-list .bookmark-item .bookmark-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin: .25rem 0 0;
+}
+.bookmark-list .bookmark-screenshot {
+  border: 1px solid var(--nav-active-border, var(--color-border));
+  border-radius: var(--radius, .75rem);
+}
+/* Chroma's spaceship-2 a.btn rule otherwise overrides its button variants. */
+:root[data-theme="spaceship-2"] .bookmark-actions a.btn-secondary:not(:hover):not(:focus):not(:active) {
+  border-color: #00cfe0 !important;
+  background: #21404f !important;
+  color: #f3fcff !important;
+}
+:root[data-theme="spaceship-2"] .bookmark-actions a.btn-danger:not(:hover):not(:focus):not(:active) {
+  border-color: #ff5f85 !important;
+  background: #6b2034 !important;
+  color: #fff1f4 !important;
+}
+:root[data-theme="spaceship-2"] .bookmark-actions a.btn-secondary:hover {
+  border-color: #8ef6ff !important;
+  background: #2b566b !important;
+  color: #fff !important;
+}
+:root[data-theme="spaceship-2"] .bookmark-actions a.btn-danger:hover {
+  border-color: #ff9cb4 !important;
+  background: #8a2944 !important;
+  color: #fff !important;
+}
+main#content > p, .form-grid label, .form-grid .tags,
+.field-error, .feedback-error { overflow-wrap: anywhere; }
+.form-grid .tags { min-width: 0; max-width: 100%; }
+.screenshot-preview { display: block; max-width: 100%; height: auto; }
+.capture-status { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+select:focus-visible, textarea:focus-visible, input:focus-visible,
+button:focus-visible, a:focus-visible {
+  /* Some bundled themes suppress focused control outlines. */
+  outline: 3px solid currentColor !important;
+  outline-offset: 3px;
+}
+.field-error, .feedback-error { color: var(--danger-color, #b91c1c); }
+
+@media (max-width: 480px) {
+  main#content { padding: 1rem; }
+  .card { padding: 1rem; }
+}

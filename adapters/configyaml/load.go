@@ -19,6 +19,12 @@ type Store struct {
 	path                      string
 	environment               Environment
 	stagedConfigurationWriter StagedConfigurationWriter
+	filesystemHooks           FilesystemHooks
+}
+
+// NewStoreWithFilesystemHooks supplies failure-injection points for boundary tests.
+func NewStoreWithFilesystemHooks(path string, environment Environment, hooks FilesystemHooks) *Store {
+	return &Store{path: path, environment: environment, filesystemHooks: hooks}
 }
 
 func NewStore(path string, environment Environment) *Store {

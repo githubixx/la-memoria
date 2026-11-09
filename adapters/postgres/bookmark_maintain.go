@@ -37,6 +37,24 @@ func (store *BookmarkMaintainStore) FindBookmark(ctx context.Context, id model.I
 	if screenshotKey != nil {
 		bookmark.ScreenshotStorageKey = *screenshotKey
 	}
+	rows, err := store.pool.Query(ctx, `
+		SELECT t.display_name, t.normalized_name
+		FROM bookmark_tags bt JOIN tags t ON t.id = bt.tag_id
+		WHERE bt.bookmark_id = $1 ORDER BY t.normalized_name`, id.String())
+	if err != nil {
+		return ports.StoredBookmark{}, fmt.Errorf("load bookmark tags: %w", err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var tag model.Tag
+		if err := rows.Scan(&tag.DisplayName, &tag.NormalizedName); err != nil {
+			return ports.StoredBookmark{}, fmt.Errorf("scan bookmark tag: %w", err)
+		}
+		bookmark.Tags = append(bookmark.Tags, tag)
+	}
+	if err := rows.Err(); err != nil {
+		return ports.StoredBookmark{}, fmt.Errorf("load bookmark tags: %w", err)
+	}
 	return bookmark, nil
 }
 

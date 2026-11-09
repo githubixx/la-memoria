@@ -11,8 +11,8 @@
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
+# Dependency directories
+vendor/
 
 .github
 .vscode
@@ -34,11 +34,16 @@
 /blob-report/
 /.e2e-screenshots
 /.e2e-config.yaml
+/.e2e-config.yaml.lock
+.e2e-config.template.yaml
+/.specify/bugs/*/headless-verification-output/
+
 
 # Local environment and diagnostic output
 .env*
 !.env.example
 !deploy/compose/.env.example
+!deploy/compose/.env.credentials.example
 *.log
 .DS_Store
 Thumbs.db

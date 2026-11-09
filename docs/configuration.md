@@ -24,13 +24,16 @@ directory before success is reported.
 
 ## Local Compose Configuration
 
-The local Docker Compose bundle is under `deploy/compose/`. Its ignored `.env`
-file supplies `BOOKMARKER_ADMIN_USERNAME`, `BOOKMARKER_ADMIN_PASSWORD_HASH`,
-and `BOOKMARKER_DB_PASSWORD`. The container entrypoint validates the first two
-values before rendering an owner-only runtime YAML file; the database password
-remains in the process environment and is never written to YAML.
+The local Docker Compose bundle is under `deploy/compose/`. Its ignored
+`.env.credentials` file supplies `BOOKMARKER_ADMIN_USERNAME`,
+`BOOKMARKER_ADMIN_PASSWORD_HASH`, and `BOOKMARKER_DB_PASSWORD` as literal,
+unquoted values. The separate `.env` holds non-secret Compose interpolation
+settings. The container entrypoint validates the credentials before preparing
+an owner-only runtime YAML file; the database password remains in the process
+environment and is never written to YAML.
 
 Use the bundled `bookmarker-hash` Compose service to generate a compatible
-Argon2id verifier before creating `.env`. See the local Docker Compose section
-in the [README](../README.md) for startup, persistence, and supported host-port
-and named-volume overrides.
+Argon2id verifier before creating `.env.credentials`. See the local Docker
+Compose section in the [README](../README.md) for startup, persistence, and
+supported host-port and named-volume overrides. Upgrade instructions are in
+the [changelog](../CHANGELOG.md#upgrading-an-existing-compose-deployment).

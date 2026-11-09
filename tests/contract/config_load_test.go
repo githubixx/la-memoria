@@ -3,11 +3,14 @@
 package contract_test
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 
+	chromaui "github.com/githubixx/chroma-ui"
 	"github.com/githubixx/la-memoria/adapters/configyaml"
 )
 
@@ -95,3 +98,78 @@ database:
 screenshots:
   root: /tmp/bookmarker-screenshots
 `
+
+func TestLoadThemeDefaultsAndPreservesStoredValues(t *testing.T) {
+	catalog, err := chromaui.NewCatalog(nil)
+	if err != nil {
+		t.Fatalf("construct bundled Chroma catalog: %v", err)
+	}
+	themes := catalog.Themes()
+	if len(themes) == 0 {
+		t.Fatal("expected at least one bundled Chroma theme")
+	}
+	tests := []struct {
+		name, suffix, want string
+	}{
+		{"missing uses system", "", "system"},
+		{"explicit system", "\ntheme: system\n", "system"},
+		{"bundled theme", "\ntheme: " + themes[0].ID + "\n", themes[0].ID},
+		{"stored unavailable ID", "\ntheme: retired-theme\n", "retired-theme"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			path := writeConfiguration(t, validConfiguration+test.suffix, 0o600)
+			configuration, err := configyaml.Load(path, configyaml.Environment{"BOOKMARKER_DB_PASSWORD": "database-secret"})
+			if err != nil {
+				t.Fatalf("load configuration: %v", err)
+			}
+			theme := reflect.ValueOf(configuration.Redacted()).FieldByName("Theme")
+			if !theme.IsValid() || theme.Kind() != reflect.String {
+				t.Fatal("redacted configuration must expose a string Theme")
+			}
+			if got := theme.String(); got != test.want {
+				t.Fatalf("redacted theme = %q, want %q", got, test.want)
+			}
+			if configuration.Database.Password != "database-secret" {
+				t.Fatal("resolved database password changed")
+			}
+			redacted, err := json.Marshal(configuration.Redacted())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if strings.Contains(string(redacted), "database-secret") || strings.Contains(string(redacted), validPHC) {
+				t.Fatal("redacted configuration exposed a deployment secret")
+			}
+		})
+	}
+}
+
+func TestLoadThemeDoesNotRelaxStrictFieldsOrPermissions(t *testing.T) {
+	catalog, err := chromaui.NewCatalog(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	themes := catalog.Themes()
+	if len(themes) == 0 {
+		t.Fatal("expected bundled themes")
+	}
+	withTheme := validConfiguration + "\ntheme: " + themes[0].ID + "\n"
+	t.Run("unknown field", func(t *testing.T) {
+		validPath := writeConfiguration(t, withTheme, 0o600)
+		if _, err := configyaml.Load(validPath, configyaml.Environment{"BOOKMARKER_DB_PASSWORD": "database-secret"}); err != nil {
+			t.Fatalf("theme alone must be accepted before checking unknown fields: %v", err)
+		}
+		path := writeConfiguration(t, withTheme+"unexpected: true\n", 0o600)
+		_, err := configyaml.Load(path, configyaml.Environment{"BOOKMARKER_DB_PASSWORD": "database-secret"})
+		if got := configyaml.ErrorCode(err); got != "unknown_field" {
+			t.Fatalf("error code = %q, want unknown_field", got)
+		}
+	})
+	t.Run("unsafe permissions", func(t *testing.T) {
+		path := writeConfiguration(t, withTheme, 0o640)
+		_, err := configyaml.Load(path, configyaml.Environment{"BOOKMARKER_DB_PASSWORD": "database-secret"})
+		if got := configyaml.ErrorCode(err); got != "unsafe_config_permissions" {
+			t.Fatalf("error code = %q, want unsafe_config_permissions", got)
+		}
+	})
+}

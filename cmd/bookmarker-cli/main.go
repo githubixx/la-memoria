@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"github.com/githubixx/la-memoria/adapters/agentbrowser"
+	"github.com/githubixx/la-memoria/adapters/chromatheme"
 	"github.com/githubixx/la-memoria/adapters/configyaml"
 	"github.com/githubixx/la-memoria/adapters/filesystem"
 	"github.com/githubixx/la-memoria/adapters/jsonl"
@@ -21,6 +22,12 @@ import (
 
 func main() {
 	logger := observability.NewLogger(os.Stderr)
+
+	catalog, err := chromatheme.NewCatalog()
+	if err != nil {
+		logger.Error("initialize theme catalog")
+		os.Exit(1)
+	}
 
 	configPath := os.Getenv("BOOKMARKER_CONFIG")
 	if configPath == "" {
@@ -62,7 +69,7 @@ func main() {
 		os.Exit(1)
 	}
 	captureDrafts := postgres.NewCaptureDraftStore(pool)
-	bookmarkQueryStore := postgres.NewBookmarkQueryStore(pool)
+	bookmarkQueryStore := postgres.NewBookmarkQueryStoreWithScreenshots(pool, screenshots)
 	bookmarkCreateStore := postgres.NewBookmarkCreateStore(pool)
 	bookmarkMaintainStore := postgres.NewBookmarkMaintainStore(pool)
 	retentionStore := postgres.NewRetentionStore(pool)
@@ -103,6 +110,7 @@ func main() {
 				postgres.NewConfigurationValidator(),
 			},
 			Activator: configurationStore,
+			Catalog:   catalog,
 		}),
 	})
 	if err := server.Serve(os.Stdin, os.Stdout, os.Stderr); err != nil {

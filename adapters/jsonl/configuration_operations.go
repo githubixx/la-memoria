@@ -39,6 +39,19 @@ func (server *Server) handleConfigurationValidate(ctx context.Context, value req
 		write(output, responseError{value.ID, "dependency_unavailable"})
 		return
 	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(value.Payload, &fields); err != nil {
+		write(output, responseError{value.ID, "unknown_field"})
+		return
+	}
+	rawTheme, present := fields["theme"]
+	if present {
+		var theme string
+		if string(rawTheme) == "null" || json.Unmarshal(rawTheme, &theme) != nil || theme == "" {
+			write(output, responseError{value.ID, "validation_failed"})
+			return
+		}
+	}
 	decoder := json.NewDecoder(strings.NewReader(string(value.Payload)))
 	decoder.DisallowUnknownFields()
 	var candidate model.EditableConfiguration
@@ -46,6 +59,7 @@ func (server *Server) handleConfigurationValidate(ctx context.Context, value req
 		write(output, responseError{value.ID, "unknown_field"})
 		return
 	}
+	candidate.ThemePresent = present
 	var change struct {
 		Configuration   model.EditableConfiguration `json:"configuration"`
 		RestartRequired bool                        `json:"restart_required"`
@@ -53,6 +67,8 @@ func (server *Server) handleConfigurationValidate(ctx context.Context, value req
 	if activate {
 		result, err := server.dependencies.Configuration.Update(ctx, candidate)
 		if err != nil {
+			// Preserve the established validation/storage error envelope;
+			// diagnostics and filesystem details must not enter the protocol.
 			write(output, responseError{value.ID, model.ErrorCode(err)})
 			return
 		}

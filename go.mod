@@ -2,9 +2,10 @@ module github.com/githubixx/la-memoria
 
 go 1.27.0
 
-// Bookmarker library version: 0.2.0
+// Bookmarker library version: 0.3.0
 
 require (
+	github.com/githubixx/chroma-ui v0.3.0
 	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.10.0
 	github.com/testcontainers/testcontainers-go v0.44.0

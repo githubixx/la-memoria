@@ -6,17 +6,23 @@ import (
 )
 
 type EditableConfiguration struct {
-	Branding    BrandingConfig   `json:"branding"`
-	DefaultView string           `json:"default_view"`
-	Database    DatabaseConfig   `json:"database"`
-	Screenshots ScreenshotConfig `json:"screenshots"`
-	Search      SearchConfig     `json:"search"`
+	Theme        string           `json:"theme"`
+	ThemePresent bool             `json:"-"`
+	Branding     BrandingConfig   `json:"branding"`
+	DefaultView  string           `json:"default_view"`
+	Database     DatabaseConfig   `json:"database"`
+	Screenshots  ScreenshotConfig `json:"screenshots"`
+	Search       SearchConfig     `json:"search"`
 }
 
 func (configuration Configuration) Redacted() EditableConfiguration {
 	database := configuration.Database
 	database.Password = ""
-	return EditableConfiguration{Branding: configuration.Branding, DefaultView: configuration.DefaultView, Database: database, Screenshots: configuration.Screenshots, Search: configuration.Search}
+	theme := configuration.Theme
+	if theme == "" {
+		theme = "system"
+	}
+	return EditableConfiguration{Theme: theme, ThemePresent: true, Branding: configuration.Branding, DefaultView: configuration.DefaultView, Database: database, Screenshots: configuration.Screenshots, Search: configuration.Search}
 }
 
 func ValidateEditableConfiguration(candidate EditableConfiguration) (EditableConfiguration, error) {
@@ -70,6 +76,7 @@ func ApplyEditableConfiguration(current Configuration, candidate EditableConfigu
 		return Configuration{}, err
 	}
 	updated := current
+	updated.Theme = validated.Theme
 	updated.Branding, updated.DefaultView, updated.Database = validated.Branding, validated.DefaultView, validated.Database
 	if updated.Database.PasswordEnv == current.Database.PasswordEnv {
 		updated.Database.Password = current.Database.Password

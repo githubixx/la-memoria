@@ -30,17 +30,29 @@ func CopyComposeBundle(t *testing.T) *ComposeStack {
 		t.Fatalf("copy source checkout: %v: %s", err, output)
 	}
 	project := "bookmarker_" + strings.ReplaceAll(strings.ToLower(t.Name()), "/", "_")
-	return &ComposeStack{Project: project, Root: root, Port: freeTCPPort(t)}
+	stack := &ComposeStack{Project: project, Root: root, Port: freeTCPPort(t)}
+	// Tests must not inherit private runtime settings from the checkout.
+	for _, name := range []string{".env", ".env.credentials"} {
+		if err := os.Remove(filepath.Join(root, "deploy", "compose", name)); err != nil && !os.IsNotExist(err) {
+			t.Fatalf("remove copied runtime environment: %v", err)
+		}
+	}
+	stack.writeInterpolationEnvironment(t)
+	return stack
 }
 
 func (stack *ComposeStack) WriteEnvironment(t *testing.T, verifier string) {
 	t.Helper()
 	contents := fmt.Sprintf("BOOKMARKER_ADMIN_USERNAME=admin\nBOOKMARKER_ADMIN_PASSWORD_HASH=%s\nBOOKMARKER_DB_PASSWORD=bookmarker-test\n", verifier)
-	path := filepath.Join(stack.Root, "deploy", "compose", ".env")
+	path := filepath.Join(stack.Root, "deploy", "compose", ".env.credentials")
 	if err := os.WriteFile(path, []byte(contents), 0o600); err != nil {
 		t.Fatalf("write Compose environment: %v", err)
 	}
-	composeContents := fmt.Sprintf("BOOKMARKER_HOST_PORT=%s\nBOOKMARKER_POSTGRES_VOLUME=%s-postgres\nBOOKMARKER_SCREENSHOTS_VOLUME=%s-screenshots\n", stack.Port, stack.Project, stack.Project)
+}
+
+func (stack *ComposeStack) writeInterpolationEnvironment(t *testing.T) {
+	t.Helper()
+	composeContents := fmt.Sprintf("BOOKMARKER_HOST_PORT=%s\nBOOKMARKER_POSTGRES_VOLUME=%s-postgres\nBOOKMARKER_SCREENSHOTS_VOLUME=%s-screenshots\nBOOKMARKER_CONFIG_VOLUME=%s-config\n", stack.Port, stack.Project, stack.Project, stack.Project)
 	composePath := filepath.Join(stack.Root, "deploy", "compose", ".compose.env")
 	if err := os.WriteFile(composePath, []byte(composeContents), 0o600); err != nil {
 		t.Fatalf("write Compose interpolation environment: %v", err)

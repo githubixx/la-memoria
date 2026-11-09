@@ -73,6 +73,7 @@ type Bookmark struct {
 }
 
 var ErrBookmarkNotFound = &ApplicationError{Code: "not_found", Message: "bookmark was not found"}
+var ErrScreenshotNotFound = &ApplicationError{Code: "not_found", Message: "screenshot was not found"}
 
 // ValidateBookmarkURL requires an absolute HTTP/HTTPS URL without embedded
 // credentials.
