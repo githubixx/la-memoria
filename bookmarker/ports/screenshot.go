@@ -1,6 +1,20 @@
 package ports
 
-import "context"
+import (
+	"context"
+
+	"github.com/githubixx/la-memoria/bookmarker/model"
+)
+
+// ScreenshotLookup resolves a public screenshot ID to its private storage key.
+type ScreenshotLookup interface {
+	ScreenshotStorageKey(ctx context.Context, id model.ID) (string, error)
+}
+
+// ScreenshotAvailability checks whether a stored screenshot can be shown.
+type ScreenshotAvailability interface {
+	Available(ctx context.Context, storageKey string) (bool, error)
+}
 
 // ProcessResult is the captured stdout/stderr of one external process
 // invocation.

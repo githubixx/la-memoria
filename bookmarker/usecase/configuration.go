@@ -11,6 +11,7 @@ type ConfigurationDependencies struct {
 	Store     ports.ConfigurationStore
 	Validator ports.ConfigurationValidator
 	Activator ports.ConfigurationActivator
+	Catalog   ports.ThemeCatalog
 }
 
 type ConfigurationChange struct {
@@ -51,35 +52,56 @@ func (service *ConfigurationService) Validate(ctx context.Context, candidate mod
 	if err != nil {
 		return ConfigurationChange{}, err
 	}
+	change, _, err := service.validateCandidate(ctx, current, candidate)
+	return change, err
+}
+
+func (service *ConfigurationService) validateCandidate(ctx context.Context, current model.Configuration, candidate model.EditableConfiguration) (ConfigurationChange, model.Configuration, error) {
+	if !candidate.ThemePresent {
+		candidate.Theme = current.Theme
+		if candidate.Theme == "" {
+			candidate.Theme = "system"
+		}
+	}
+	if candidate.Theme != "system" && (service.dependencies.Catalog == nil || !service.dependencies.Catalog.Contains(candidate.Theme)) {
+		return ConfigurationChange{}, model.Configuration{}, &model.ValidationError{Code: "validation_failed", Field: "theme", Message: "select an available theme"}
+	}
 	updated, err := model.ApplyEditableConfiguration(current, candidate)
 	if err != nil {
-		return ConfigurationChange{}, err
+		return ConfigurationChange{}, model.Configuration{}, err
 	}
 	if service.dependencies.Validator != nil {
 		if err := service.dependencies.Validator.Validate(ctx, updated); err != nil {
-			return ConfigurationChange{}, err
+			return ConfigurationChange{}, model.Configuration{}, err
 		}
 	}
-	return ConfigurationChange{Configuration: updated.Redacted(), RestartRequired: databaseChanged(current.Database, updated.Database)}, nil
+	return ConfigurationChange{Configuration: updated.Redacted(), RestartRequired: databaseChanged(current.Database, updated.Database)}, updated, nil
 }
 
 func (service *ConfigurationService) Update(ctx context.Context, candidate model.EditableConfiguration) (ConfigurationChange, error) {
-	change, err := service.Validate(ctx, candidate)
+	var change ConfigurationChange
+	transaction := func() error {
+		current, err := service.dependencies.Store.Load(ctx)
+		if err != nil {
+			return err
+		}
+		var updated model.Configuration
+		change, updated, err = service.validateCandidate(ctx, current, candidate)
+		if err != nil {
+			return err
+		}
+		if service.dependencies.Activator == nil {
+			return &model.ApplicationError{Code: "dependency_unavailable", Message: "configuration activation is unavailable"}
+		}
+		return service.dependencies.Activator.Activate(ctx, updated)
+	}
+	var err error
+	if locker, ok := service.dependencies.Store.(ports.ConfigurationTransaction); ok {
+		err = locker.WithLock(ctx, transaction)
+	} else {
+		err = transaction()
+	}
 	if err != nil {
-		return ConfigurationChange{}, err
-	}
-	current, err := service.dependencies.Store.Load(ctx)
-	if err != nil {
-		return ConfigurationChange{}, err
-	}
-	updated, err := model.ApplyEditableConfiguration(current, change.Configuration)
-	if err != nil {
-		return ConfigurationChange{}, err
-	}
-	if service.dependencies.Activator == nil {
-		return ConfigurationChange{}, &model.ApplicationError{Code: "dependency_unavailable", Message: "configuration activation is unavailable"}
-	}
-	if err := service.dependencies.Activator.Activate(ctx, updated); err != nil {
 		return ConfigurationChange{}, err
 	}
 	return change, nil

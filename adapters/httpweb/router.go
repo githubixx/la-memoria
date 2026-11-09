@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/githubixx/la-memoria/bookmarker/ports"
 	"github.com/githubixx/la-memoria/bookmarker/usecase"
 )
 
@@ -17,12 +18,16 @@ type Dependencies struct {
 	TemplatesDir      string
 	Browser           *usecase.Browser
 	Searcher          *usecase.Searcher
+	Screenshots       *usecase.ScreenshotService
 	DefaultView       string
 	Authenticator     *usecase.Authenticator
 	CaptureService    *usecase.CaptureService
 	Creator           *usecase.Creator
 	Maintainer        *usecase.Maintainer
 	Configuration     *usecase.ConfigurationService
+	ThemeAssets       http.Handler
+	Appearance        *usecase.AppearanceService
+	ThemeCatalog      ports.ThemeCatalog
 }
 
 type Router struct {
@@ -41,6 +46,9 @@ func NewRouter(dependencies Dependencies) *Router {
 	}
 	if dependencies.TemplatesDir != "" {
 		router.renderer, router.renderErr = NewRenderer(dependencies.TemplatesDir)
+		if router.renderer != nil {
+			router.renderer.appearance = dependencies.Appearance
+		}
 	}
 	return router
 }
@@ -56,6 +64,9 @@ func (router *Router) middleware(next http.Handler) http.Handler {
 			requestID = randomID()
 		}
 		writer.Header().Set("X-Request-ID", requestID)
+		// Chroma's bundled stylesheet includes optional remote fonts; never fetch
+		// those resources. Local/system fallback fonts remain available.
+		writer.Header().Set("Content-Security-Policy", "style-src 'self' 'unsafe-inline'; font-src 'self'")
 		if request.Method == http.MethodPost && !sameOrigin(request) {
 			http.Error(writer, "forbidden", http.StatusForbidden)
 			return
@@ -67,6 +78,8 @@ func (router *Router) middleware(next http.Handler) http.Handler {
 func (router *Router) route(writer http.ResponseWriter, request *http.Request) {
 	path := request.URL.Path
 	switch {
+	case strings.HasPrefix(path, "/ui/") && router.dependencies.ThemeAssets != nil:
+		http.StripPrefix("/ui", router.dependencies.ThemeAssets).ServeHTTP(writer, request)
 	case path == "/":
 		router.handleRoot(writer, request)
 	case path == "/bookmarks" && request.Method == http.MethodGet:
@@ -85,6 +98,8 @@ func (router *Router) route(writer http.ResponseWriter, request *http.Request) {
 		router.handleAddForm(writer, request)
 	case path == "/search":
 		router.handleSearch(writer, request)
+	case strings.HasPrefix(path, "/screenshots/") && request.Method == http.MethodGet:
+		router.handleScreenshot(writer, request, strings.TrimPrefix(path, "/screenshots/"))
 	case path == "/login" && request.Method == http.MethodGet:
 		router.handleLoginGet(writer, request)
 	case path == "/login" && request.Method == http.MethodPost:

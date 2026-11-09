@@ -3,17 +3,167 @@
 package contract_test
 
 import (
+	"bytes"
+	"context"
+	"errors"
+	"html/template"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/githubixx/la-memoria/adapters/chromatheme"
 	"github.com/githubixx/la-memoria/adapters/httpweb"
 	"github.com/githubixx/la-memoria/bookmarker/model"
 	"github.com/githubixx/la-memoria/bookmarker/usecase"
 	"github.com/githubixx/la-memoria/tests/testkit"
 )
+
+func TestBookmarkActionLinksUseThemeButtonsOnlyWhenAuthenticated(t *testing.T) {
+	tmpl, err := template.ParseFiles("../../web/templates/fragments/bookmark_results.html")
+	if err != nil {
+		t.Fatal(err)
+	}
+	data := struct {
+		Items         []model.Bookmark
+		Authenticated bool
+		IsCapped      bool
+		Pagination    struct{ Links []string }
+	}{
+		Items: []model.Bookmark{{ID: "bookmark-1", URL: "https://example.test", CreatedAt: time.Now()}},
+	}
+	for _, authenticated := range []bool{false, true} {
+		data.Authenticated = authenticated
+		var output bytes.Buffer
+		if err := tmpl.ExecuteTemplate(&output, "bookmark_results", data); err != nil {
+			t.Fatal(err)
+		}
+		for _, action := range []string{
+			`<a class="btn btn-secondary" href="/bookmarks/bookmark-1/edit">Edit</a>`,
+			`<a class="btn btn-danger" href="/bookmarks/bookmark-1/delete">Delete</a>`,
+		} {
+			if strings.Contains(output.String(), action) != authenticated {
+				t.Errorf("authenticated=%t: action %q presence mismatch", authenticated, action)
+			}
+		}
+		if !authenticated && strings.Contains(output.String(), `class="bookmark-actions"`) {
+			t.Error("anonymous users must not see bookmark actions")
+		}
+	}
+}
+
+type appearanceTestStore struct {
+	configuration model.Configuration
+	err           error
+}
+
+type screenshotLookupFunc func(context.Context, model.ID) (string, error)
+
+func (lookup screenshotLookupFunc) ScreenshotStorageKey(ctx context.Context, id model.ID) (string, error) {
+	return lookup(ctx, id)
+}
+
+func TestPublicScreenshotEndpoint(t *testing.T) {
+	files := newScreenshotStore(t)
+	staged := files.StagingPath("session")
+	writePNG(t, staged)
+	key, err := files.Promote(context.Background(), staged)
+	if err != nil {
+		t.Fatal(err)
+	}
+	lookup := screenshotLookupFunc(func(_ context.Context, id model.ID) (string, error) {
+		switch id {
+		case "shot-1":
+			return key, nil
+		case "failure":
+			return "", errors.New("private database failure")
+		default:
+			return "", model.ErrScreenshotNotFound
+		}
+	})
+	handler := httpweb.NewRouter(httpweb.Dependencies{Screenshots: usecase.NewScreenshotService(lookup, files)}).Handler()
+	for _, tc := range []struct {
+		path string
+		want int
+	}{
+		{"/screenshots/shot-1", http.StatusOK},
+		{"/screenshots/missing", http.StatusNotFound},
+		{"/screenshots/failure", http.StatusInternalServerError},
+		{"/screenshots/..%2Fpromoted%2Fimage.png", http.StatusNotFound},
+	} {
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "https://bookmarker.test"+tc.path, nil))
+		if response.Code != tc.want {
+			t.Fatalf("%s = %d, want %d", tc.path, response.Code, tc.want)
+		}
+		if tc.want == http.StatusOK && (response.Header().Get("Content-Type") != "image/png" || response.Header().Get("X-Content-Type-Options") != "nosniff" || !bytes.HasPrefix(response.Body.Bytes(), []byte("\x89PNG"))) {
+			t.Fatalf("invalid screenshot response headers/body: %v", response.Header())
+		}
+		if strings.Contains(response.Body.String(), key) || strings.Contains(response.Body.String(), "private database failure") {
+			t.Fatal("screenshot response exposed private storage or error details")
+		}
+	}
+	if err := files.Remove(context.Background(), key); err != nil {
+		t.Fatal(err)
+	}
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, httptest.NewRequest(http.MethodGet, "https://bookmarker.test/screenshots/shot-1", nil))
+	if response.Code != http.StatusNotFound {
+		t.Fatalf("missing image = %d, want 404", response.Code)
+	}
+}
+
+func (store appearanceTestStore) Load(context.Context) (model.Configuration, error) {
+	return store.configuration, store.err
+}
+
+func TestPublicShellUsesOnlyApprovedAppearance(t *testing.T) {
+	catalog, err := chromatheme.NewCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	valid := catalog.Themes()[0].ID
+	for _, tc := range []struct {
+		name, stored, expected string
+		err                    error
+	}{
+		{"missing", "", "", nil},
+		{"unavailable", "../../not-a-theme", "", nil},
+		{"valid", valid, "/ui/themes/" + valid + "/theme.css", nil},
+		{"read failure", "", "", errors.New("private-secret-do-not-log")},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var logs bytes.Buffer
+			store := appearanceTestStore{configuration: model.Configuration{Theme: tc.stored}, err: tc.err}
+			appearance := usecase.NewAppearanceService(store, catalog, slog.New(slog.NewJSONHandler(&logs, nil)))
+			bookmarks := &testkit.BookmarkStore{}
+			router := httpweb.NewRouter(httpweb.Dependencies{
+				TemplatesDir: "../../web/templates", Appearance: appearance,
+				Browser: usecase.NewBrowser(usecase.BrowseDependencies{Bookmarks: bookmarks}),
+			})
+			response := httptest.NewRecorder()
+			router.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, "/bookmarks", nil))
+			body := response.Body.String()
+			if response.Code != 200 || !strings.Contains(body, "/ui/css/base.css") {
+				t.Fatalf("response = %d, body = %s", response.Code, body)
+			}
+			if tc.expected == "" && strings.Contains(body, "/ui/themes/") {
+				t.Fatal("System shell must not render a theme stylesheet")
+			}
+			if tc.expected != "" && !strings.Contains(body, tc.expected) {
+				t.Fatalf("missing approved theme URL %s", tc.expected)
+			}
+			if strings.Contains(body, tc.stored) && tc.stored == "../../not-a-theme" {
+				t.Fatal("untrusted persisted value reflected into shell")
+			}
+			if tc.err != nil && (logs.Len() == 0 || strings.Contains(logs.String(), "private-secret-do-not-log")) {
+				t.Fatalf("read failure logging not redacted: %s", logs.String())
+			}
+		})
+	}
+}
 
 func newPublicRouter(t *testing.T, bookmarks []model.Bookmark) *httpweb.Router {
 	t.Helper()
@@ -65,6 +215,27 @@ func TestBookmarksListRendersFieldOrderTagLinksAndExternalLinkSafety(t *testing.
 	}
 	if !strings.Contains(body, `tag=go`) {
 		t.Fatalf("tag link missing normalized tag query: %q", body)
+	}
+}
+
+func TestPublicBookmarkResultsIncludeAvailableScreenshot(t *testing.T) {
+	bookmarks := []model.Bookmark{
+		{ID: "one", URL: "https://example.test/one", Description: "screenshot fixture", CreatedAt: time.Now().Add(time.Hour), Screenshot: &model.ScreenshotSummary{ID: "shot-1", Available: true}},
+		{ID: "two", URL: "https://example.test/two", Description: "screenshot fixture", CreatedAt: time.Now(), Screenshot: &model.ScreenshotSummary{ID: "shot-2", Available: false}},
+	}
+	handler := newPublicRouter(t, bookmarks).Handler()
+	for _, path := range []string{"/bookmarks", "/search?q=screenshot"} {
+		for _, fragment := range []bool{false, true} {
+			request := httptest.NewRequest(http.MethodGet, "https://bookmarker.test"+path, nil)
+			if fragment {
+				request.Header.Set("HX-Request", "true")
+			}
+			response := httptest.NewRecorder()
+			handler.ServeHTTP(response, request)
+			if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), `src="/screenshots/shot-1"`) || strings.Contains(response.Body.String(), `src="/screenshots/shot-2"`) {
+				t.Fatalf("%s fragment=%t: status=%d body=%s", path, fragment, response.Code, response.Body.String())
+			}
+		}
 	}
 }
 

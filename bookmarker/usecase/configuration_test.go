@@ -2,25 +2,123 @@ package usecase_test
 
 import (
 	"context"
+	"reflect"
+	"sort"
+	"strings"
 	"testing"
 
+	chromaui "github.com/githubixx/chroma-ui"
+	"github.com/githubixx/la-memoria/adapters/chromatheme"
 	"github.com/githubixx/la-memoria/bookmarker/model"
 	"github.com/githubixx/la-memoria/bookmarker/usecase"
 )
+
+func TestConfigurationThemeCandidateValidationAndPresence(t *testing.T) {
+	catalog, err := chromatheme.NewCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	options := catalog.Themes()
+	if len(options) == 0 {
+		t.Fatal("empty catalog")
+	}
+	last := ""
+	for _, option := range options {
+		if option.ID <= last || option.Name == "" || !option.Bundled || !catalog.Contains(option.ID) {
+			t.Fatalf("invalid, unsorted, duplicate, or undiscoverable catalog option: %#v", option)
+		}
+		last = option.ID
+	}
+	if catalog.Contains("system") || catalog.Contains("not-a-theme") {
+		t.Fatal("system and unknown values must not be catalog members")
+	}
+	valid := options[0].ID
+	for _, tc := range []struct {
+		name, stored, submitted string
+		present, invalid        bool
+	}{
+		{"missing defaults to system", "", "", false, false},
+		{"omitted retains valid", valid, "", false, false},
+		{"omitted obsolete rejected", "obsolete", "", false, true},
+		{"system", "", "system", true, false},
+		{"catalog id", "", valid, true, false},
+		{"empty explicit", valid, "", true, true},
+		{"unknown", valid, "unknown-theme", true, true},
+		{"case sensitive", valid, strings.ToUpper(valid), true, strings.ToUpper(valid) != valid},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			for _, operation := range []string{"validate", "update"} {
+				t.Run(operation, func(t *testing.T) {
+					current := testConfiguration()
+					current.Theme = tc.stored
+					store := &configurationStore{configuration: current}
+					service := usecase.NewConfigurationService(usecase.ConfigurationDependencies{Store: store, Validator: store, Activator: store, Catalog: catalog})
+					candidate := current.Redacted()
+					candidate.Theme, candidate.ThemePresent = tc.submitted, tc.present
+					candidate.Branding.PageTitle = "Changed"
+					var change usecase.ConfigurationChange
+					var err error
+					if operation == "validate" {
+						change, err = service.Validate(context.Background(), candidate)
+					} else {
+						change, err = service.Update(context.Background(), candidate)
+					}
+					if tc.invalid {
+						if model.ErrorCode(err) != "validation_failed" || store.activations != 0 || !reflect.DeepEqual(store.configuration, current) {
+							t.Fatalf("rejection = %v, activations = %d, configuration = %#v", err, store.activations, store.configuration)
+						}
+						return
+					}
+					if err != nil {
+						t.Fatal(err)
+					}
+					want := tc.submitted
+					if !tc.present {
+						want = tc.stored
+						if want == "" {
+							want = "system"
+						}
+					}
+					if change.Configuration.Theme != want {
+						t.Fatalf("theme = %q, want %q", change.Configuration.Theme, want)
+					}
+					if operation == "validate" && store.activations != 0 {
+						t.Fatal("validate wrote configuration")
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestThemeValidationRejectsEntireInvalidCandidate(t *testing.T) {
+	catalog, err := chromatheme.NewCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	current := testConfiguration()
+	store := &configurationStore{configuration: current}
+	service := usecase.NewConfigurationService(usecase.ConfigurationDependencies{Store: store, Validator: store, Activator: store, Catalog: catalog})
+	candidate := current.Redacted()
+	candidate.Theme, candidate.ThemePresent = "system", true
+	candidate.Search.PageSize = 0
+	if _, err := service.Update(context.Background(), candidate); model.ErrorCode(err) != "validation_failed" {
+		t.Fatalf("invalid complete candidate: %v", err)
+	}
+	if store.activations != 0 || !reflect.DeepEqual(store.configuration, current) {
+		t.Fatal("invalid complete candidate was saved")
+	}
+}
 
 func TestEditableConfigurationValidatesBoundsAndRedactsSecrets(t *testing.T) {
 	configuration := model.Configuration{
 		Administrator: model.Administrator{Username: "admin", PasswordHash: "secret-hash"},
 		Branding:      model.BrandingConfig{PageTitle: "Bookmarker", FaviconPath: "favicon.png"},
 		DefaultView:   "list",
-		Database: model.DatabaseConfig{
-			Host: "db.example.test", Port: 5432, Name: "bookmarker", User: "bookmarker",
-			PasswordEnv: "BOOKMARKER_DB_PASSWORD", Password: "resolved-secret", TLSMode: "require",
-		},
-		Screenshots: model.ScreenshotConfig{Root: "/var/lib/bookmarker/screenshots"},
-		Search:      model.SearchConfig{PageSize: 25, MaximumResults: 10000},
+		Database:      model.DatabaseConfig{Host: "db.example.test", Port: 5432, Name: "bookmarker", User: "bookmarker", PasswordEnv: "BOOKMARKER_DB_PASSWORD", Password: "resolved-secret", TLSMode: "require"},
+		Screenshots:   model.ScreenshotConfig{Root: "/var/lib/bookmarker/screenshots"},
+		Search:        model.SearchConfig{PageSize: 25, MaximumResults: 10000},
 	}
-
 	candidate, err := model.ValidateEditableConfiguration(configuration.Redacted())
 	if err != nil {
 		t.Fatalf("validate editable configuration: %v", err)
@@ -112,4 +210,74 @@ func (store *configurationStore) Activate(_ context.Context, configuration model
 	store.configuration = configuration
 	store.activations++
 	return nil
+}
+
+func TestBundledThemeCatalogHasSortedUniqueExactIDs(t *testing.T) {
+	catalog, err := chromaui.NewCatalog(nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	themes := catalog.Themes()
+	if len(themes) == 0 {
+		t.Fatal("bundled catalog is empty")
+	}
+	ids := make([]string, 0, len(themes))
+	seen := make(map[string]bool)
+	for _, theme := range themes {
+		if theme.ID == "" || seen[theme.ID] {
+			t.Errorf("empty or duplicate theme ID %q", theme.ID)
+		}
+		seen[theme.ID] = true
+		ids = append(ids, theme.ID)
+		if _, ok := catalog.Theme(theme.ID); !ok {
+			t.Errorf("catalog cannot find its theme %q", theme.ID)
+		}
+	}
+	if !sort.StringsAreSorted(ids) {
+		t.Errorf("theme IDs are not sorted: %v", ids)
+	}
+	if _, ok := catalog.Theme("system"); ok {
+		t.Error("System must not be a bundled theme")
+	}
+	for _, id := range ids {
+		upper := strings.ToUpper(id)
+		if upper != id && !seen[upper] {
+			if _, ok := catalog.Theme(upper); ok {
+				t.Errorf("catalog lookup is not case-sensitive for %q", id)
+			}
+			return
+		}
+	}
+	t.Fatal("catalog has no ID with a case variant to test")
+}
+
+func TestConfigurationServiceGetProjectsDefaultAndUnavailableTheme(t *testing.T) {
+	for _, test := range []struct {
+		name, stored, want string
+	}{
+		{"missing", "", "system"},
+		{"unavailable", "retired-theme", "retired-theme"},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			configuration := testConfiguration()
+			stored := reflect.ValueOf(&configuration).Elem().FieldByName("Theme")
+			if !stored.IsValid() || stored.Kind() != reflect.String || !stored.CanSet() {
+				t.Fatal("configuration must expose a settable string Theme")
+			}
+			stored.SetString(test.stored)
+			store := &configurationStore{configuration: configuration}
+			service := usecase.NewConfigurationService(usecase.ConfigurationDependencies{Store: store, Validator: store, Activator: store})
+			result, err := service.Get(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			theme := reflect.ValueOf(result).FieldByName("Theme")
+			if !theme.IsValid() || theme.Kind() != reflect.String {
+				t.Fatal("redacted configuration must expose a string Theme")
+			}
+			if got := theme.String(); got != test.want {
+				t.Errorf("theme = %q, want %q", got, test.want)
+			}
+		})
+	}
 }

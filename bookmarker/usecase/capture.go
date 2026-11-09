@@ -106,9 +106,13 @@ func (service *CaptureService) Status(ctx context.Context, sessionID, id model.I
 	return draft, nil
 }
 
-// Preview returns the staged screenshot bytes for a ready capture draft.
+// Preview returns staged screenshot bytes for a ready capture draft. A draft
+// in another state returns a conflict; a missing staged key returns not found.
 func (service *CaptureService) Preview(ctx context.Context, draft model.CaptureDraft) ([]byte, error) {
-	if draft.State != model.CaptureStateReady || draft.StagedKey == "" {
+	if draft.State != model.CaptureStateReady {
+		return nil, model.ErrCaptureConflict
+	}
+	if draft.StagedKey == "" {
 		return nil, model.ErrCaptureNotFound
 	}
 	return service.dependencies.Files.Read(ctx, draft.StagedKey)

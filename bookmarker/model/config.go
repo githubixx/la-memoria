@@ -7,6 +7,7 @@ import (
 var environmentNamePattern = regexp.MustCompile(`^[A-Z_][A-Z0-9_]*$`)
 
 type Configuration struct {
+	Theme         string           `yaml:"theme,omitempty"`
 	Administrator Administrator    `yaml:"administrator"`
 	Branding      BrandingConfig   `yaml:"branding"`
 	DefaultView   string           `yaml:"default_view"`

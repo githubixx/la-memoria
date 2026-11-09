@@ -1,4 +1,6 @@
 .git/
+Dockerfile*
+.dockerignore
 .github/
 .specify/
 node_modules/
@@ -9,7 +11,12 @@ coverage/
 dist/
 build/
 screenshots/
-*.log
+*.log*
 .env*
 deploy/compose/.env
 /.e2e-screenshots
+/.e2e-config.yaml
+/.e2e-config.template.yaml
+/config.yaml
+/config.local.yaml
+/config.*.local.yaml

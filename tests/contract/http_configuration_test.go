@@ -4,18 +4,146 @@ package contract_test
 
 import (
 	"context"
+	"errors"
+	"fmt"
+	"html"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"reflect"
+	"regexp"
 	"strings"
 	"testing"
 	"time"
 
+	"github.com/githubixx/la-memoria/adapters/chromatheme"
 	"github.com/githubixx/la-memoria/adapters/httpweb"
 	"github.com/githubixx/la-memoria/bookmarker/model"
 	"github.com/githubixx/la-memoria/bookmarker/usecase"
 	"github.com/githubixx/la-memoria/tests/testkit"
 )
+
+func TestHTTPThemeSelectionAndInvalidSubmissions(t *testing.T) {
+	catalog, err := chromatheme.NewCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	theme := catalog.Themes()[0].ID
+	current := testConfiguration()
+	current.Theme = theme
+	store := &configurationTestStore{configuration: current}
+	handler := newConfigurationRouter(store).Handler()
+	cookie, csrf := signInConfiguration(t, handler)
+	get := httptest.NewRequest(http.MethodGet, "https://bookmarker.test/configuration", nil)
+	get.AddCookie(cookie)
+	page := httptest.NewRecorder()
+	handler.ServeHTTP(page, get)
+	if page.Code != 200 || page.Header().Get("Cache-Control") != "no-store" {
+		t.Fatalf("GET = %d, headers = %v", page.Code, page.Header())
+	}
+	t.Run("catalog options", func(t *testing.T) {
+		body := page.Body.String()
+		if !strings.Contains(body, `for="theme"`) {
+			t.Fatal("missing labeled theme select")
+		}
+		selectRE := regexp.MustCompile(`(?s)<select[^>]*name="theme"[^>]*>(.*?)</select>`)
+		selectMatch := selectRE.FindStringSubmatch(body)
+		if len(selectMatch) != 2 {
+			t.Fatal("missing theme select")
+		}
+		optionRE := regexp.MustCompile(`<option value="([^"]*)"([^>]*)>([^<]*)</option>`)
+		options := optionRE.FindAllStringSubmatch(selectMatch[1], -1)
+		if len(options) != len(catalog.Themes())+1 {
+			t.Fatalf("options = %d, want %d", len(options), len(catalog.Themes())+1)
+		}
+		ids, labels := map[string]bool{}, map[string]bool{}
+		for _, option := range options {
+			id, label := html.UnescapeString(option[1]), html.UnescapeString(strings.TrimSpace(option[3]))
+			if ids[id] || labels[label] || label == "" {
+				t.Fatalf("duplicate option or label: %q %q", id, label)
+			}
+			ids[id], labels[label] = true, true
+			if id == theme && !strings.Contains(option[2], "selected") {
+				t.Fatal("stored option not selected")
+			}
+		}
+		if !ids["system"] {
+			t.Fatal("System missing")
+		}
+		for _, option := range catalog.Themes() {
+			if !ids[option.ID] {
+				t.Errorf("missing theme %q", option.ID)
+			}
+		}
+	})
+	for _, hx := range []bool{false, true} {
+		for _, invalid := range []string{"missing", "unknown", "empty"} {
+			t.Run(fmt.Sprintf("%t/%s", hx, invalid), func(t *testing.T) {
+				store.configuration = current
+				form := validConfigurationForm()
+				form.Set("csrf_token", csrf)
+				form.Set("page_title", "Must not save")
+				form.Set("database_host", "changed.test")
+				switch invalid {
+				case "missing":
+					form.Del("theme")
+				case "unknown":
+					form.Set("theme", "../invalid")
+				case "empty":
+					form.Set("theme", "")
+				}
+				req := httptest.NewRequest(http.MethodPost, "https://bookmarker.test/configuration", strings.NewReader(form.Encode()))
+				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				req.Header.Set("Origin", "https://bookmarker.test")
+				if hx {
+					req.Header.Set("HX-Request", "true")
+				}
+				req.AddCookie(cookie)
+				res := httptest.NewRecorder()
+				handler.ServeHTTP(res, req)
+				if res.Code != http.StatusUnprocessableEntity || res.Header().Get("Cache-Control") != "no-store" || !reflect.DeepEqual(store.configuration, current) {
+					t.Fatalf("invalid update = %d, state changed=%v", res.Code, !reflect.DeepEqual(store.configuration, current))
+				}
+			})
+		}
+	}
+	for _, hx := range []bool{false, true} {
+		store.configuration = current
+		form := validConfigurationForm()
+		form.Set("theme", theme)
+		form.Set("csrf_token", csrf)
+		form.Set("database_host", "changed.test")
+		req := httptest.NewRequest(http.MethodPost, "https://bookmarker.test/configuration", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", "https://bookmarker.test")
+		if hx {
+			req.Header.Set("HX-Request", "true")
+		}
+		req.AddCookie(cookie)
+		res := httptest.NewRecorder()
+		handler.ServeHTTP(res, req)
+		want := "/configuration?restart_required=true"
+		if hx && (res.Code != 200 || res.Header().Get("HX-Redirect") != want) {
+			t.Fatalf("htmx = %d, redirect=%s", res.Code, res.Header().Get("HX-Redirect"))
+		}
+		if !hx && (res.Code != 303 || res.Header().Get("Location") != want) {
+			t.Fatalf("normal = %d, redirect=%s", res.Code, res.Header().Get("Location"))
+		}
+		store.configuration = current
+	}
+	form := validConfigurationForm()
+	form.Set("theme", theme)
+	form.Set("csrf_token", "invalid")
+	req := httptest.NewRequest(http.MethodPost, "https://bookmarker.test/configuration", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Origin", "https://bookmarker.test")
+	req.AddCookie(cookie)
+	res := httptest.NewRecorder()
+	handler.ServeHTTP(res, req)
+	if res.Code != http.StatusForbidden || !reflect.DeepEqual(store.configuration, current) {
+		t.Fatal("invalid CSRF was not rejected atomically")
+	}
+}
 
 func TestConfigurationRoutesProtectAdministrationAndServeAFaviconFallback(t *testing.T) {
 	handler := httpweb.NewRouter(httpweb.Dependencies{}).Handler()
@@ -131,13 +259,19 @@ func TestHTTPConfigurationUpdateChangesTheActiveDefaultView(t *testing.T) {
 	}
 }
 
-type configurationTestStore struct{ configuration model.Configuration }
+type configurationTestStore struct {
+	configuration   model.Configuration
+	activationError error
+}
 
 func (store *configurationTestStore) Load(context.Context) (model.Configuration, error) {
 	return store.configuration, nil
 }
 
 func (store *configurationTestStore) Activate(_ context.Context, configuration model.Configuration) error {
+	if store.activationError != nil {
+		return store.activationError
+	}
 	store.configuration = configuration
 	return nil
 }
@@ -149,8 +283,12 @@ func newConfigurationRouter(configuration *configurationTestStore) *httpweb.Rout
 		Passwords:     &testkit.PasswordVerifier{ExpectedHash: "hash", ExpectedPassword: "correct horse"},
 		Administrator: model.Administrator{Username: "admin", PasswordHash: "hash"},
 	})
-	service := usecase.NewConfigurationService(usecase.ConfigurationDependencies{Store: configuration, Activator: configuration})
-	return httpweb.NewRouter(httpweb.Dependencies{TemplatesDir: "../../web/templates", DefaultView: "configuration", Authenticator: authenticator, Configuration: service})
+	catalog, err := chromatheme.NewCatalog()
+	if err != nil {
+		panic(err)
+	}
+	service := usecase.NewConfigurationService(usecase.ConfigurationDependencies{Store: configuration, Activator: configuration, Catalog: catalog})
+	return httpweb.NewRouter(httpweb.Dependencies{TemplatesDir: "../../web/templates", DefaultView: "configuration", Authenticator: authenticator, Configuration: service, ThemeCatalog: catalog, Appearance: usecase.NewAppearanceService(configuration, catalog, nil)})
 }
 
 func signInConfiguration(t *testing.T, handler http.Handler) (*http.Cookie, string) {
@@ -205,6 +343,7 @@ func testConfiguration() model.Configuration {
 func validConfigurationForm() url.Values {
 	return url.Values{
 		"page_title":             {"Bookmarker"},
+		"theme":                  {"system"},
 		"favicon_path":           {""},
 		"default_view":           {"list"},
 		"screenshot_root":        {"/var/lib/bookmarker/screenshots"},
@@ -216,5 +355,98 @@ func validConfigurationForm() url.Values {
 		"database_tls_mode":      {"require"},
 		"search_page_size":       {"10"},
 		"maximum_search_results": {"10000"},
+	}
+}
+
+func TestHTTPThemeRecoveryAndFailurePresentation(t *testing.T) {
+	catalog, err := chromatheme.NewCatalog()
+	if err != nil {
+		t.Fatal(err)
+	}
+	theme := catalog.Themes()[0].ID
+	t.Run("obsolete selection", func(t *testing.T) {
+		current := testConfiguration()
+		current.Theme = `retired-<theme>`
+		store := &configurationTestStore{configuration: current}
+		handler := newConfigurationRouter(store).Handler()
+		cookie, csrf := signInConfiguration(t, handler)
+		get := httptest.NewRequest(http.MethodGet, "https://bookmarker.test/configuration", nil)
+		get.AddCookie(cookie)
+		page := httptest.NewRecorder()
+		handler.ServeHTTP(page, get)
+		body := page.Body.String()
+		if !strings.Contains(body, "retired-&lt;theme&gt;") || !strings.Contains(body, "unavailable") || !strings.Contains(body, "selected") || strings.Contains(body, "/ui/themes/retired-") {
+			t.Fatal("obsolete selection was not safely presented as unavailable")
+		}
+		form := validConfigurationForm()
+		form.Set("theme", current.Theme)
+		form.Set("page_title", "Candidate title")
+		form.Set("csrf_token", csrf)
+		req := httptest.NewRequest(http.MethodPost, "https://bookmarker.test/configuration", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", "https://bookmarker.test")
+		req.AddCookie(cookie)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		if response.Code != 422 || response.Header().Get("Cache-Control") != "no-store" || !reflect.DeepEqual(store.configuration, current) {
+			t.Fatal("obsolete selection changed configuration or lacked 422/no-store")
+		}
+		body = response.Body.String()
+		if !strings.Contains(body, `value="Candidate title"`) || !strings.Contains(body, `aria-invalid="true"`) || !strings.Contains(body, `aria-describedby=`) || strings.Contains(body, "/ui/themes/retired-") {
+			t.Fatal("obsolete error did not preserve input, associate error, and retain System shell")
+		}
+		form.Set("theme", theme)
+		req = httptest.NewRequest(http.MethodPost, "https://bookmarker.test/configuration", strings.NewReader(form.Encode()))
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+		req.Header.Set("Origin", "https://bookmarker.test")
+		req.AddCookie(cookie)
+		response = httptest.NewRecorder()
+		handler.ServeHTTP(response, req)
+		if response.Code != 303 || store.configuration.Theme != theme {
+			t.Fatal("valid replacement did not recover")
+		}
+	})
+	for _, hx := range []bool{false, true} {
+		for _, failure := range []string{"invalid fields", "writer"} {
+			t.Run(fmt.Sprintf("%t/%s", hx, failure), func(t *testing.T) {
+				current := testConfiguration()
+				current.Theme = theme
+				store := &configurationTestStore{configuration: current}
+				if failure == "writer" {
+					store.activationError = errors.New("private writer secret")
+				}
+				handler := newConfigurationRouter(store).Handler()
+				cookie, csrf := signInConfiguration(t, handler)
+				form := validConfigurationForm()
+				form.Set("theme", "system")
+				form.Set("page_title", "Candidate title")
+				form.Set("csrf_token", csrf)
+				if failure == "invalid fields" {
+					form.Set("search_page_size", "0")
+				}
+				req := httptest.NewRequest(http.MethodPost, "https://bookmarker.test/configuration", strings.NewReader(form.Encode()))
+				req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+				req.Header.Set("Origin", "https://bookmarker.test")
+				if hx {
+					req.Header.Set("HX-Request", "true")
+				}
+				req.AddCookie(cookie)
+				response := httptest.NewRecorder()
+				handler.ServeHTTP(response, req)
+				body := response.Body.String()
+				if response.Code != 422 || response.Header().Get("Cache-Control") != "no-store" || !reflect.DeepEqual(store.configuration, current) {
+					t.Fatal("failure changed the saved configuration")
+				}
+				if !strings.Contains(body, `value="Candidate title"`) || strings.Contains(body, "private writer secret") || strings.Contains(body, "resolved-secret") {
+					t.Fatal("failure did not preserve candidate or leaked secrets")
+				}
+				if !hx && !strings.Contains(body, "/ui/themes/"+theme+"/theme.css") {
+					t.Fatal("full error did not retain persisted appearance")
+				}
+				if hx && strings.Contains(body, "<html") {
+					t.Fatal("htmx error must be a fragment")
+				}
+			})
+		}
 	}
 }

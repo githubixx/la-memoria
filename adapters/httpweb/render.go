@@ -4,14 +4,17 @@ import (
 	"fmt"
 	"html/template"
 	"net/http"
+
+	"github.com/githubixx/la-memoria/bookmarker/usecase"
 )
 
 // Renderer holds one parsed template set per page, each combining the
 // shared layout and fragments with that page's own content block so the
 // same set can render either the full document or the "content" fragment.
 type Renderer struct {
-	pages     map[string]*template.Template
-	fragments map[string]*template.Template
+	pages      map[string]*template.Template
+	fragments  map[string]*template.Template
+	appearance *usecase.AppearanceService
 }
 
 var pageNames = []string{"list", "search", "login", "add", "edit", "delete", "configuration"}
@@ -62,7 +65,14 @@ func (renderer *Renderer) Render(writer http.ResponseWriter, request *http.Reque
 	if request.Header.Get("HX-Request") == "true" {
 		return tmpl.ExecuteTemplate(writer, "content", data)
 	}
-	return tmpl.ExecuteTemplate(writer, "base.html", data)
+	appearance := usecase.Appearance{Theme: "system"}
+	if renderer.appearance != nil {
+		appearance = renderer.appearance.Get(request.Context())
+	}
+	return tmpl.ExecuteTemplate(writer, "base.html", struct {
+		Data       any
+		Appearance usecase.Appearance
+	}{Data: data, Appearance: appearance})
 }
 
 // RenderFragment writes a standalone fragment template (not wrapped in the

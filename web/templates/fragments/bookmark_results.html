@@ -4,8 +4,9 @@
 {{else}}
 <ul class="bookmark-list">
   {{range .Items}}
-  <li class="bookmark-item">
-    <a href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.URL}}</a>
+  <li class="bookmark-item card{{if .Screenshot}}{{if .Screenshot.Available}} has-screenshot{{end}}{{end}}">
+    <div class="bookmark-content">
+    <a class="bookmark-url" href="{{.URL}}" target="_blank" rel="noopener noreferrer">{{.URL}}</a>
     <p class="description">{{.Description}}</p>
     <time datetime="{{.CreatedAt.Format "2006-01-02T15:04:05Z07:00"}}">{{.CreatedAt.Format "2006-01-02"}}</time>
     {{if .Tags}}
@@ -13,8 +14,9 @@
       {{range .Tags}}<li><a href="/bookmarks?tag={{.NormalizedName}}" hx-get="/bookmarks?tag={{.NormalizedName}}" hx-target="#content" hx-push-url="true">{{.DisplayName}}</a></li>{{end}}
     </ul>
     {{end}}
-    {{if .Screenshot}}{{if .Screenshot.Available}}<img class="screenshot" src="/screenshots/{{.Screenshot.ID}}" alt="">{{end}}{{end}}
-    {{if $.Authenticated}}<p class="bookmark-actions"><a href="/bookmarks/{{.ID}}/edit">Edit</a> <a href="/bookmarks/{{.ID}}/delete">Delete</a></p>{{end}}
+    {{if $.Authenticated}}<p class="bookmark-actions"><a class="btn btn-secondary" href="/bookmarks/{{.ID}}/edit">Edit</a> <a class="btn btn-danger" href="/bookmarks/{{.ID}}/delete">Delete</a></p>{{end}}
+    </div>
+    {{if .Screenshot}}{{if .Screenshot.Available}}<div class="bookmark-screenshot"><img class="screenshot" src="/screenshots/{{.Screenshot.ID}}" alt="" loading="lazy"></div>{{end}}{{end}}
   </li>
   {{end}}
 </ul>

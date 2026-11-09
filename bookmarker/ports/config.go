@@ -14,3 +14,8 @@ type ConfigurationValidator interface {
 type ConfigurationActivator interface {
 	Activate(context.Context, model.Configuration) error
 }
+
+// ConfigurationTransaction serializes the whole load/merge/validate/commit.
+type ConfigurationTransaction interface {
+	WithLock(context.Context, func() error) error
+}

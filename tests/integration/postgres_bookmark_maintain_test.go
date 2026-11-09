@@ -4,6 +4,7 @@ package integration_test
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -12,6 +13,53 @@ import (
 	"github.com/githubixx/la-memoria/bookmarker/ports"
 	"github.com/githubixx/la-memoria/tests/testkit"
 )
+
+func TestPostgreSQLBookmarkMaintainFindHydratesTags(t *testing.T) {
+	ctx := context.Background()
+	database := testkit.StartPostgreSQL(ctx, t)
+	if err := database.ApplyMigration(ctx, testkit.MigrationPath("0001_bookmarks.up.sql")); err != nil {
+		t.Fatalf("apply migration: %v", err)
+	}
+	pool, err := postgres.NewPool(ctx, database.ConnectionString)
+	if err != nil {
+		t.Fatalf("open pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	create := postgres.NewBookmarkCreateStore(pool)
+	store := postgres.NewBookmarkMaintainStore(pool)
+	var taggedID model.ID
+	for _, tc := range []struct {
+		name string
+		tags []model.Tag
+		want []model.Tag
+	}{
+		{name: "tagged", tags: model.NormalizeTags([]string{"Zulu", "Alpha"}), want: []model.Tag{{DisplayName: "Alpha", NormalizedName: "alpha"}, {DisplayName: "Zulu", NormalizedName: "zulu"}}},
+		{name: "untagged"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			id := model.NewID()
+			if tc.name == "tagged" {
+				taggedID = id
+			}
+			if err := create.CreateBookmark(ctx, ports.NewBookmark{ID: id, URL: "https://example.test/" + tc.name, Description: tc.name, Tags: tc.tags, Now: time.Now().UTC()}); err != nil {
+				t.Fatalf("create bookmark: %v", err)
+			}
+			got, err := store.FindBookmark(ctx, id)
+			if err != nil {
+				t.Fatalf("find bookmark: %v", err)
+			}
+			if len(got.Tags) != len(tc.want) || (len(tc.want) > 0 && !reflect.DeepEqual(got.Tags, tc.want)) {
+				t.Fatalf("tags = %#v, want %#v", got.Tags, tc.want)
+			}
+		})
+	}
+	if _, err := pool.Exec(ctx, `ALTER TABLE bookmark_tags RENAME TO inaccessible_bookmark_tags`); err != nil {
+		t.Fatalf("make tag lookup unavailable: %v", err)
+	}
+	if _, err := store.FindBookmark(ctx, taggedID); err == nil {
+		t.Fatal("find bookmark succeeded despite unavailable tag table")
+	}
+}
 
 func TestPostgreSQLBookmarkMaintainUpdatesTagsAndPreservesCreationTime(t *testing.T) {
 	ctx := context.Background()

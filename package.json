@@ -1,6 +1,6 @@
 {
   "name": "bookmarker",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "scripts": {
     "format": "gofmt -w $(find bookmarker adapters cmd tests -name '*.go' -type f 2>/dev/null)",

@@ -141,8 +141,7 @@ func (store *ScreenshotStore) Restore(_ context.Context, quarantinedKey, storage
 	return nil
 }
 
-// Read returns the bytes of a promoted file for serving, or a not-found
-// error if it is missing or unreadable.
+// Read returns the bytes of a staged or promoted file for serving.
 func (store *ScreenshotStore) Read(_ context.Context, storageKey string) ([]byte, error) {
 	resolved, err := store.resolve(storageKey)
 	if err != nil {
@@ -150,9 +149,24 @@ func (store *ScreenshotStore) Read(_ context.Context, storageKey string) ([]byte
 	}
 	data, err := os.ReadFile(resolved)
 	if err != nil {
-		return nil, &notFoundError{path: storageKey}
+		return nil, fmt.Errorf("read screenshot file: %w", err)
 	}
 	return data, nil
+}
+
+func (store *ScreenshotStore) Available(_ context.Context, storageKey string) (bool, error) {
+	resolved, err := store.resolve(storageKey)
+	if err != nil {
+		return false, err
+	}
+	info, err := os.Stat(resolved)
+	if os.IsNotExist(err) {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("check screenshot file: %w", err)
+	}
+	return info.Mode().IsRegular(), nil
 }
 
 // resolve joins a relative key to the root and rejects any path that

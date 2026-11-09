@@ -5,7 +5,8 @@ COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 RUN CGO_ENABLED=0 go build -o /out/bookmarker-web ./cmd/bookmarker-web && \
-    CGO_ENABLED=0 go build -o /out/bookmarker-hash ./cmd/bookmarker-hash
+    CGO_ENABLED=0 go build -o /out/bookmarker-hash ./cmd/bookmarker-hash && \
+    CGO_ENABLED=0 go build -o /out/bookmarker-config-init ./cmd/bookmarker-config-init
 
 FROM node:24-bookworm-slim
 
@@ -54,6 +55,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 COPY --from=build /out/bookmarker-web /usr/local/bin/bookmarker-web
 COPY --from=build /out/bookmarker-hash /usr/local/bin/bookmarker-hash
+COPY --from=build /out/bookmarker-config-init /usr/local/bin/bookmarker-config-init
 COPY migrations ./migrations
 COPY web ./web
 COPY deploy/compose/config.yaml.tmpl ./config.yaml.tmpl

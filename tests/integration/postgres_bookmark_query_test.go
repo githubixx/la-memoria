@@ -4,15 +4,78 @@ package integration_test
 
 import (
 	"context"
+	"errors"
+	"os"
+	"path/filepath"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"github.com/githubixx/la-memoria/adapters/filesystem"
 	"github.com/githubixx/la-memoria/adapters/postgres"
+	"github.com/githubixx/la-memoria/bookmarker/model"
 	"github.com/githubixx/la-memoria/tests/testkit"
 )
+
+func TestPostgreSQLBookmarkQueriesIncludeScreenshotReferences(t *testing.T) {
+	ctx := context.Background()
+	database := testkit.StartPostgreSQL(ctx, t)
+	if err := database.ApplyMigration(ctx, testkit.MigrationPath("0001_bookmarks.up.sql")); err != nil {
+		t.Fatal(err)
+	}
+	pool, err := postgres.NewPool(ctx, database.ConnectionString)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Close)
+	insertBookmark(t, ctx, pool, "with-shot", "https://example.test", "screenshot example", time.Now(), nil)
+	insertBookmark(t, ctx, pool, "without-shot", "https://example.test", "screenshot example", time.Now().Add(-time.Hour), nil)
+	if _, err := pool.Exec(ctx, `INSERT INTO screenshots (id, bookmark_id, storage_key, captured_url, captured_at, byte_size) VALUES ('shot-1', 'with-shot', 'promoted/image.png', 'https://example.test', now(), 10)`); err != nil {
+		t.Fatal(err)
+	}
+	root := t.TempDir()
+	files, err := filesystem.NewScreenshotStore(root)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Mkdir(filepath.Join(root, "promoted"), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	imagePath := filepath.Join(root, "promoted", "image.png")
+	if err := os.WriteFile(imagePath, []byte("fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	store := postgres.NewBookmarkQueryStoreWithScreenshots(pool, files)
+	browse, _, err := store.BrowsePage(ctx, "", 1, 10)
+	if err != nil {
+		t.Fatal(err)
+	}
+	search, _, _, err := store.SearchPage(ctx, "", []string{"screenshot"}, 1, 10, 100)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, items := range [][]model.Bookmark{browse, search} {
+		if len(items) != 2 || items[0].Screenshot == nil || items[0].Screenshot.ID != "shot-1" || !items[0].Screenshot.Available || items[1].Screenshot != nil {
+			t.Fatalf("unexpected screenshot summaries: %#v", items)
+		}
+	}
+	key, err := store.ScreenshotStorageKey(ctx, "shot-1")
+	if err != nil || key != "promoted/image.png" {
+		t.Fatalf("lookup = %q, %v", key, err)
+	}
+	if _, err := store.ScreenshotStorageKey(ctx, "missing"); !errors.Is(err, model.ErrScreenshotNotFound) {
+		t.Fatalf("missing screenshot lookup = %v", err)
+	}
+	if err := os.Remove(imagePath); err != nil {
+		t.Fatal(err)
+	}
+	missing, _, err := store.BrowsePage(ctx, "", 1, 10)
+	if err != nil || len(missing) != 2 || missing[0].Screenshot == nil || missing[0].Screenshot.Available {
+		t.Fatalf("missing file summary = %#v, error %v", missing, err)
+	}
+}
 
 func insertBookmark(t *testing.T, ctx context.Context, pool *pgxpool.Pool, id, url, description string, createdAt time.Time, tags []string) {
 	t.Helper()

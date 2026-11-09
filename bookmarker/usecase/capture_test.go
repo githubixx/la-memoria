@@ -124,8 +124,25 @@ func TestCapturePreviewReadsReadyDraftScreenshot(t *testing.T) {
 		t.Fatal("preview image must not be empty")
 	}
 
-	draft.State = model.CaptureStateFailed
-	if _, err := service.Preview(context.Background(), draft); model.ErrorCode(err) != "conflict" {
-		t.Fatalf("previewing failed draft = %v, want conflict", err)
+	for _, state := range []model.CaptureState{
+		model.CaptureStatePending,
+		model.CaptureStateCapturing,
+		model.CaptureStateFailed,
+		model.CaptureStateConsumed,
+		model.CaptureStateDiscarded,
+		model.CaptureStateExpired,
+	} {
+		t.Run(string(state), func(t *testing.T) {
+			nonReady := draft
+			nonReady.State = state
+			if _, err := service.Preview(context.Background(), nonReady); model.ErrorCode(err) != "conflict" {
+				t.Fatalf("previewing %s draft = %v, want conflict", state, err)
+			}
+		})
+	}
+
+	draft.StagedKey = ""
+	if _, err := service.Preview(context.Background(), draft); model.ErrorCode(err) != "not_found" {
+		t.Fatalf("previewing ready draft without staged image = %v, want not_found", err)
 	}
 }

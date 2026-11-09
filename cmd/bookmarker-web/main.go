@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/githubixx/la-memoria/adapters/agentbrowser"
+	"github.com/githubixx/la-memoria/adapters/chromatheme"
 	"github.com/githubixx/la-memoria/adapters/configyaml"
 	"github.com/githubixx/la-memoria/adapters/filesystem"
 	"github.com/githubixx/la-memoria/adapters/httpweb"
@@ -26,6 +27,12 @@ import (
 
 func main() {
 	logger := observability.NewLogger(os.Stderr)
+
+	catalog, err := chromatheme.NewCatalog()
+	if err != nil {
+		logger.Error("initialize theme catalog")
+		os.Exit(1)
+	}
 
 	configPath := os.Getenv("BOOKMARKER_CONFIG")
 	if configPath == "" {
@@ -67,7 +74,7 @@ func main() {
 		os.Exit(1)
 	}
 	captureDrafts := postgres.NewCaptureDraftStore(pool)
-	bookmarkQueryStore := postgres.NewBookmarkQueryStore(pool)
+	bookmarkQueryStore := postgres.NewBookmarkQueryStoreWithScreenshots(pool, screenshots)
 	bookmarkCreateStore := postgres.NewBookmarkCreateStore(pool)
 	bookmarkMaintainStore := postgres.NewBookmarkMaintainStore(pool)
 	retentionStore := postgres.NewRetentionStore(pool)
@@ -100,6 +107,7 @@ func main() {
 			postgres.NewConfigurationValidator(),
 		},
 		Activator: configurationStore,
+		Catalog:   catalog,
 	})
 
 	router := httpweb.NewRouter(httpweb.Dependencies{
@@ -108,6 +116,7 @@ func main() {
 		DefaultView:       configuration.DefaultView,
 		Browser:           usecase.NewBrowser(usecase.BrowseDependencies{Bookmarks: bookmarkQueryStore, PageSize: 10}),
 		Searcher:          usecase.NewSearcher(usecase.SearchDependencies{Bookmarks: bookmarkQueryStore, PageSize: configuration.Search.PageSize, MaximumResults: configuration.Search.MaximumResults}),
+		Screenshots:       usecase.NewScreenshotService(bookmarkQueryStore, screenshots),
 		Authenticator:     authenticator,
 		CaptureService:    captureService,
 		Creator:           creator,
@@ -117,6 +126,9 @@ func main() {
 			Files:     screenshots,
 		}),
 		Configuration: configurationService,
+		ThemeAssets:   catalog.Handler(logger),
+		ThemeCatalog:  catalog,
+		Appearance:    usecase.NewAppearanceService(configurationStore, catalog, logger),
 	})
 	mux := http.NewServeMux()
 	mux.Handle("/assets/css/", http.StripPrefix("/assets/css/", http.FileServer(http.Dir("web/static/css"))))

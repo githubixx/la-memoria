@@ -1,26 +1,28 @@
 :root {
-  --color-background: #ffffff;
-  --color-text: #1a1a1a;
-  --color-muted: #5f6368;
-  --color-accent: #1a56db;
-  --color-danger: #b91c1c;
-  --color-success: #15803d;
-  --color-border: #d0d5dd;
+  --color-background: var(--bg-color, #ffffff);
+  --color-text: var(--text-color, #1a1a1a);
+  --color-muted: var(--text-muted, #5f6368);
+  --color-accent: var(--primary-color, #1a56db);
+  --color-danger: var(--danger-color, #b91c1c);
+  --color-success: var(--success-color, #15803d);
+  --color-border: var(--border-color, #d0d5dd);
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 1rem;
   --space-4: 1.5rem;
-  --font-sans: system-ui, -apple-system, "Segoe UI", sans-serif;
   --header-height: 3.5rem;
 }
 
 * { box-sizing: border-box; }
 
+/* Keep the viewport background aligned when navigation adds a scrollbar. */
+html { scrollbar-gutter: stable; }
+
 body {
   margin: 0;
   font-family: var(--font-sans);
   color: var(--color-text);
-  background: var(--color-background);
+  background-color: var(--color-background);
   line-height: 1.5;
 }
 
@@ -141,6 +143,26 @@ main#content {
   border-bottom: 1px solid var(--color-border);
 }
 
+.bookmark-item.has-screenshot {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+}
+
+.bookmark-content {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.bookmark-screenshot {
+  position: relative;
+  min-width: 0;
+  overflow: hidden;
+}
+
 .bookmark-item .tags {
   display: flex;
   gap: var(--space-1);
@@ -148,8 +170,12 @@ main#content {
 }
 
 .bookmark-item .screenshot {
-  max-width: 100%;
-  height: auto;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center top;
 }
 
 .pagination {
